@@ -134,12 +134,12 @@ public class RealSizeMod implements ModInitializer {
             final double finalScale = Math.max(FLOOR, Math.min(CAP, scale));
 
             // Apply visual + hitbox scale
-            applyModifier(living, EntityAttributes.GENERIC_SCALE, ID_SCALE,
+            applyModifier(living, EntityAttributes.SCALE, ID_SCALE,
                     finalScale - 1.0, EntityAttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 
             // Large mobs: step height boost so they can navigate terrain
             if (finalScale > 1.10) {
-                applyModifier(living, EntityAttributes.GENERIC_STEP_HEIGHT, ID_STEP_HEIGHT,
+                applyModifier(living, EntityAttributes.STEP_HEIGHT, ID_STEP_HEIGHT,
                         0.5, EntityAttributeModifier.Operation.ADD_VALUE);
             }
         });
