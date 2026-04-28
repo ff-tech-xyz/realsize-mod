@@ -14,6 +14,16 @@ repositories {
 	mavenCentral()
 }
 
+loom {
+	noIntermediateMappings()
+
+	mods {
+		"realsize" {
+			sourceSet sourceSets.main
+		}
+	}
+}
+
 dependencies {
 	minecraft "com.mojang:minecraft:${project.minecraft_version}"
 	mappings files("gradle/minecraft/identity-official-26.1.2.jar")

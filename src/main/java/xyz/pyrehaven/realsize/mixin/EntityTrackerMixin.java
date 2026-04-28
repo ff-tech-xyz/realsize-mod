@@ -1,8 +1,6 @@
 package xyz.pyrehaven.realsize.mixin;
 
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.server.level.ServerChunkCache;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -12,23 +10,26 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import xyz.pyrehaven.realsize.RealSizeMod;
 
 /**
- * Hooks ServerChunkCache$EntityTracker.getMaxTrackDistance() to enforce
+ * Hooks ChunkMap$TrackedEntity.getEffectiveRange() to enforce
  * a minimum tracking distance (in blocks) for small scaled mobs.
  *
- * This fires AFTER adjustTrackingDistance() already applied the server's view-distance
- * multiplier, so it's the true last word on whether a player receives updates.
+ * In 26.1.2 the old ServerChunkCache$EntityTracker class no longer exists;
+ * entity tracking now lives in ChunkMap$TrackedEntity.
+ *
+ * This fires AFTER the server view-distance multiplier is applied, so it's the
+ * true last word on whether a player receives updates.
  *
  * MIN_TRACKING_DISTANCE_BLOCKS = 128 blocks (8 chunks).
  * This overrides even low view-distance settings for affected mobs.
  */
-@Mixin(targets = "net.minecraft.server.level.ServerChunkCache$EntityTracker")
+@Mixin(targets = "net.minecraft.server.level.ChunkMap$TrackedEntity")
 public class EntityTrackerMixin {
 
     @Final
     @Shadow
     Entity entity;
 
-    @Inject(method = "getMaxTrackDistance()I", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "getEffectiveRange()I", at = @At("RETURN"), cancellable = true)
     private void realsize_enforceMinTrackDistance(CallbackInfoReturnable<Integer> cir) {
         if (!(entity instanceof net.minecraft.world.entity.LivingEntity)) return;
 

@@ -11,14 +11,15 @@ import xyz.pyrehaven.realsize.RealSizeMod;
  * Boosts the server-side entity max track distance for small mobs so they are never
  * culled from client view even when their hitbox is tiny.
  *
- * EntityType.getMaxTrackDistance() returns distance in CHUNKS, not blocks.
+ * In 26.1.2 the old getMaxTrackDistance() method became the official
+ * accessor clientTrackingRange(). It still returns distance in CHUNKS, not blocks.
  * Vanilla: monsters = 10 chunks, animals = 5-8 chunks, misc = 5 chunks.
  * We boost small mobs to at least MIN_TRACKING_RANGE_CHUNKS (8 chunks = 128 blocks).
  */
 @Mixin(EntityType.class)
 public class EntityTypeTrackingMixin {
 
-    @Inject(method = "getMaxTrackDistance()I", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "clientTrackingRange()I", at = @At("RETURN"), cancellable = true)
     private void realsize_boostSmallMobRange(CallbackInfoReturnable<Integer> cir) {
         @SuppressWarnings("unchecked")
         EntityType<?> self = (EntityType<?>) (Object) this;
