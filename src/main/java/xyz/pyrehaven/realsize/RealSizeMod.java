@@ -2,15 +2,15 @@ package xyz.pyrehaven.realsize;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.attribute.EntityAttributeInstance;
-import net.minecraft.entity.attribute.EntityAttributeModifier;
-import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.attribute.EntityAttribute;
-import net.minecraft.registry.Registries;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.Identifier;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.HashMap;
@@ -79,8 +79,8 @@ public class RealSizeMod implements ModInitializer {
     public static final String MOD_ID = "realsize";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
-    private static final Identifier ID_SCALE       = Identifier.of(MOD_ID, "scale");
-    private static final Identifier ID_STEP_HEIGHT = Identifier.of(MOD_ID, "step_height");
+    private static final Identifier ID_SCALE       = Identifier.fromNamespaceAndPath(MOD_ID, "scale");
+    private static final Identifier ID_STEP_HEIGHT = Identifier.fromNamespaceAndPath(MOD_ID, "step_height");
 
     public static final double FLOOR = 0.22;
     public static final double CAP   = 1.45;
@@ -121,7 +121,7 @@ public class RealSizeMod implements ModInitializer {
             if (!(entity instanceof LivingEntity living)) return;
 
             // Check registry-ID overrides first (for 1.21.11 mobs not in 1.21.1 mappings)
-            String entityId = Registries.ENTITY_TYPE.getId(entity.getType()).toString();
+            String entityId = BuiltInRegistries.ENTITY_TYPE.getKey(entity.getType()).toString();
             double scale;
             if (REGISTRY_SCALES.containsKey(entityId)) {
                 scale = REGISTRY_SCALES.get(entityId);
@@ -134,25 +134,25 @@ public class RealSizeMod implements ModInitializer {
             final double finalScale = Math.max(FLOOR, Math.min(CAP, scale));
 
             // Apply visual + hitbox scale
-            applyModifier(living, EntityAttributes.SCALE, ID_SCALE,
-                    finalScale - 1.0, EntityAttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+            applyModifier(living, Attributes.SCALE, ID_SCALE,
+                    finalScale - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
 
             // Large mobs: step height boost so they can navigate terrain
             if (finalScale > 1.10) {
-                applyModifier(living, EntityAttributes.STEP_HEIGHT, ID_STEP_HEIGHT,
-                        0.5, EntityAttributeModifier.Operation.ADD_VALUE);
+                applyModifier(living, Attributes.STEP_HEIGHT, ID_STEP_HEIGHT,
+                        0.5, AttributeModifier.Operation.ADD_VALUE);
             }
         });
     }
 
     private void applyModifier(LivingEntity living,
-                                RegistryEntry<EntityAttribute> attribute,
+                                Holder<Attribute> attribute,
                                 Identifier id, double value,
-                                EntityAttributeModifier.Operation operation) {
-        EntityAttributeInstance inst = living.getAttributeInstance(attribute);
+                                AttributeModifier.Operation operation) {
+        AttributeInstance inst = living.getAttribute(attribute);
         if (inst == null) return;
         if (inst.getModifier(id) != null) return;
-        inst.addPersistentModifier(new EntityAttributeModifier(id, value, operation));
+        inst.addPermanentModifier(new AttributeModifier(id, value, operation));
     }
 
     /**
