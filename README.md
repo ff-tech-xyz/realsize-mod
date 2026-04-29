@@ -28,18 +28,25 @@ Both platform jars include the shared `common` classes in the final mod jar.
 
 RealSize writes `config/realsize.json` on first launch.
 
-Config fields:
+### How to use the config
 
-- `floor`
-- `cap`
-- `trackingRangeThreshold`
-- `minTrackingRangeChunks`
-- `minTrackingDistanceBlocks`
-- `stepHeightBoostThreshold`
-- `stepHeightBoostAmount`
-- `entityScales` keyed by registry ID such as `minecraft:bee`
+1. Start the game or server once with the mod installed.
+2. Open `config/realsize.json`.
+3. Change the global limits or add/edit entries in `entityScales`.
+4. Restart the game or server to apply the new values.
 
-Example:
+### What each field does
+
+- `floor` — minimum allowed scale after config values are read. Anything lower gets clamped up to this value.
+- `cap` — maximum allowed scale. Anything higher gets clamped down to this value.
+- `trackingRangeThreshold` — if a mob ends up below this scale, RealSize boosts tracking so it stays visible from farther away.
+- `minTrackingRangeChunks` — minimum chunk-based tracking range used for tiny mobs.
+- `minTrackingDistanceBlocks` — hard minimum block distance used for tiny-mob tracking.
+- `stepHeightBoostThreshold` — if a mob is at or above this scale, RealSize adds extra step height.
+- `stepHeightBoostAmount` — how much extra step height large mobs get.
+- `entityScales` — per-entity scale overrides keyed by registry ID such as `minecraft:bee`.
+
+### Example
 
 ```json
 {
@@ -59,6 +66,13 @@ Example:
 }
 ```
 
+### Practical examples
+
+- Make bees easier to see without changing anything else: lower only `minecraft:bee` in `entityScales`.
+- Keep extremely small mobs from disappearing too early: raise `minTrackingDistanceBlocks` or `minTrackingRangeChunks`.
+- Stop giant mobs from getting too large: lower `cap`.
+- Help oversized mobs walk over terrain more naturally: lower `stepHeightBoostThreshold` or raise `stepHeightBoostAmount`.
+
 ## Building
 
 From the repository root:
@@ -74,7 +88,9 @@ Artifacts:
 
 ## Installation
 
-1. Pick the jar for your Minecraft version.
-2. Drop it into `mods/` with the matching Fabric Loader and Fabric API.
+1. Pick the jar for your Minecraft version:
+   - `realsize-mc121-<version>.jar` for Minecraft `1.21.1` through `1.21.11`
+   - `realsize-mc2612-<version>.jar` for Minecraft `26.1.2` / `1.26.1.2`
+2. Drop that one jar into `mods/` with the matching Fabric Loader and Fabric API modules.
 3. Start once to generate `config/realsize.json`.
 4. Edit config if desired and restart.
