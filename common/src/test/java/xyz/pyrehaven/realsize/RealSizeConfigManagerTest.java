@@ -14,10 +14,9 @@ class RealSizeConfigManagerTest {
     Path tempDir;
 
     @Test
-    void loadOrCreateWritesDefaultConfigWhenMissing() throws Exception {
+    void loadFromConfigDirWritesDefaultConfigWhenMissing() throws Exception {
+        RealSizeConfig config = RealSizeConfigManager.loadFromConfigDir(tempDir);
         Path configFile = tempDir.resolve("realsize.json");
-
-        RealSizeConfig config = RealSizeConfigManager.loadOrCreate(configFile);
 
         assertTrue(Files.exists(configFile));
         assertEquals(0.22, config.floor());

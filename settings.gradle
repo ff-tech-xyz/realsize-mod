@@ -8,3 +8,6 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
+rootProject.name = 'realsize-mod'
+include 'common', 'mc121', 'mc2612'

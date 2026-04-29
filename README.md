@@ -1,70 +1,34 @@
 # RealSize
 
-**Scales every Minecraft mob to its accurate real-world size.**
+**Scales Minecraft mobs to configurable real-world proportions.**
 
-A spider becomes the tiny creature it actually is. A horse stands at proper height. An elder guardian looms like the ocean titan it should be.
+RealSize is a server-side Fabric mod that applies the native scale attribute to mobs, keeps small mobs visible by raising tracking distance when needed, and boosts step height for large scaled mobs.
 
-No client install required — drop it on your Fabric server and every player sees accurate sizes automatically.
+## Builds in this repo
 
----
+This branch now builds **two Fabric jars from shared configurable logic**:
 
-## Compatibility
-
-| | |
+| Module | Target |
 |---|---|
-| **Minecraft** | 1.21.1 – 1.21.11 |
-| **Loader** | Fabric |
-| **Environment** | Server-side (works in singleplayer too) |
-| **Fabric API** | Required |
+| `mc121` | Minecraft `1.21.1` build intended for `1.21.1` through `1.21.11` |
+| `mc2612` | Minecraft `26.1.2` / `1.26.1.2` build |
+| `common` | Shared config + sizing logic + unit tests |
 
----
-
-## What It Does
-
-Applies `EntityAttributes.GENERIC_SCALE` to each mob on load, scaling hitbox and model together based on real-world measurements.
-
-| Mob | Real Height | Scale |
-|-----|------------|-------|
-| Spider | ~2.5cm body | 0.26× |
-| Bee | ~1.5cm | 0.25× |
-| Bat | ~6cm | 0.24× |
-| Rabbit | ~25cm | 0.50× |
-| Wolf | ~80cm shoulder | 0.88× |
-| Horse | ~1.6m shoulder | 1.05× |
-| Iron Golem | ~2.7m | 1.20× |
-| Elder Guardian | enormous | 1.35× |
-| Dolphin | ~2.5m long | 1.30× |
-
-Over 60 mobs rescaled. Full rationale and real-world references in [`RealSizeMod.java`](src/main/java/xyz/pyrehaven/realsize/RealSizeMod.java).
-
----
+Both platform jars include the shared `common` classes in the final mod jar.
 
 ## Features
 
-- **Accurate proportions** — real-world shoulder/body heights used as reference
-- **Server-side only** — no client mod needed, works in singleplayer too
-- **Hitbox + model scale together** — uses the native `GENERIC_SCALE` attribute added in 1.20.5
-- **Small mob visibility** — tracking range boosted for tiny mobs so they never cull at normal view distances
-- **Large mob terrain fix** — step height boosted for mobs over the configured threshold so they can navigate terrain naturally
-- **Fully configurable** — every scale and tuning constant lives in `config/realsize.json`
-- **1.21.11 mobs supported** — Nautilus and Zombie Nautilus included by default via registry ID config entries
-
----
-
-## Installation
-
-1. Download the latest `.jar` from [Releases](https://github.com/phred2026-cyber/realsize-mod/releases)
-2. Drop it in your server's `mods/` folder (alongside Fabric API)
-3. Start the game/server once to generate `config/realsize.json`
-4. Edit the config if desired, then restart to apply changes
-
----
+- JSON config at `config/realsize.json`
+- Shared data-driven entity scale table keyed by registry ID
+- Small-mob tracking range boost driven by config thresholds
+- Large-mob step-height boost driven by config thresholds
+- 1.21.11-only mob compatibility on the 1.21 build via registry-ID lookup (`minecraft:nautilus`, `minecraft:zombie_nautilus`) instead of compile-time entity constants
 
 ## Configuration
 
-RealSize now writes a JSON config file at `config/realsize.json` the first time it starts. If the file is missing, a new one is generated with the current default behavior.
+RealSize writes `config/realsize.json` on first launch.
 
-Server owners can edit:
+Config fields:
 
 - `floor`
 - `cap`
@@ -73,7 +37,7 @@ Server owners can edit:
 - `minTrackingDistanceBlocks`
 - `stepHeightBoostThreshold`
 - `stepHeightBoostAmount`
-- `entityScales` keyed by registry ID, for example `minecraft:bee`
+- `entityScales` keyed by registry ID such as `minecraft:bee`
 
 Example:
 
@@ -95,16 +59,22 @@ Example:
 }
 ```
 
-Unspecified values fall back to the built-in defaults, so you can override only the parts you care about.
+## Building
 
----
+From the repository root:
 
-## Links
+```bash
+./gradlew :common:test :mc121:build :mc2612:build
+```
 
-- 🔥 [PyreHaven Discord](https://discord.gg/tZ6Hx2ETA3) — support, feedback, hang out
-- 📦 [Modrinth](https://modrinth.com/mod/realsize) — download page
-- 🌐 [PyreHaven](https://pyrehaven.xyz) — the Minecraft server this was built for
+Artifacts:
 
----
+- `mc121/build/libs/realsize-mc121-<version>.jar`
+- `mc2612/build/libs/realsize-mc2612-<version>.jar`
 
-*Built by [PyreHaven](https://pyrehaven.xyz) — chaotic worlds, safe community.*
+## Installation
+
+1. Pick the jar for your Minecraft version.
+2. Drop it into `mods/` with the matching Fabric Loader and Fabric API.
+3. Start once to generate `config/realsize.json`.
+4. Edit config if desired and restart.

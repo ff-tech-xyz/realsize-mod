@@ -19,8 +19,8 @@
     "realsize.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.19.2",
-    "minecraft": "~26.1.2",
+    "fabricloader": "${loader_dependency}",
+    "minecraft": "${minecraft_dependency}",
     "java": ">=21",
     "fabric-api": "*"
   }

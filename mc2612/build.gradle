@@ -1,0 +1,78 @@
+plugins {
+    id 'fabric-loom' version '1.14-SNAPSHOT'
+    id 'maven-publish'
+}
+
+base {
+    archivesName = "${project.archives_base_name}-mc2612"
+}
+
+repositories {
+    mavenCentral()
+}
+
+loom {
+    noIntermediateMappings()
+
+    mods {
+        'realsize' {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
+dependencies {
+    compileOnly project(':common')
+
+    minecraft "com.mojang:minecraft:${project.minecraft_2612_version}"
+    mappings files(rootProject.file('gradle/minecraft/identity-official-26.1.2.jar'))
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_2612_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-lifecycle-events-v1:${project.fabric_2612_lifecycle_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api-base:${project.fabric_2612_api_base_version}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'minecraft_dependency', project.minecraft_2612_dependency
+    inputs.property 'loader_dependency', project.loader_2612_dependency
+
+    filesMatching('fabric.mod.json') {
+        expand(
+                version: inputs.properties.version,
+                minecraft_dependency: inputs.properties.minecraft_dependency,
+                loader_dependency: inputs.properties.loader_dependency
+        )
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.release = 21
+}
+
+java {
+    withSourcesJar()
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+    from(project(':common').sourceSets.main.output)
+
+    inputs.property 'archivesName', project.base.archivesName
+    from(rootProject.file('LICENSE')) {
+        rename { "${it}_${inputs.properties.archivesName}" }
+    }
+}
+
+tasks.named('sourcesJar') {
+    from(project(':common').sourceSets.main.allSource)
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = project.base.archivesName.get()
+            from components.java
+        }
+    }
+}

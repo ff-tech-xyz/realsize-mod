@@ -2,7 +2,6 @@ package xyz.pyrehaven.realsize;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -27,8 +26,8 @@ public final class RealSizeConfigManager {
         return currentConfig;
     }
 
-    public static RealSizeConfig loadFromDisk() {
-        Path path = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
+    public static RealSizeConfig loadFromConfigDir(Path configDir) {
+        Path path = configDir.resolve("realsize.json");
         RealSizeConfig config = loadOrCreate(path);
         currentConfig = config;
         return config;
