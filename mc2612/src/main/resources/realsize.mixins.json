@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "xyz.pyrehaven.realsize.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "EntityTypeTrackingMixin",
+    "EntityTrackerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

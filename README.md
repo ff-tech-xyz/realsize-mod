@@ -1,70 +1,96 @@
 # RealSize
 
-**Scales every Minecraft mob to its accurate real-world size.**
+**Scales Minecraft mobs to configurable real-world proportions.**
 
-A spider becomes the tiny creature it actually is. A horse stands at proper height. An elder guardian looms like the ocean titan it should be.
+RealSize is a server-side Fabric mod that applies the native scale attribute to mobs, keeps small mobs visible by raising tracking distance when needed, and boosts step height for large scaled mobs.
 
-No client install required — drop it on your Fabric server and every player sees accurate sizes automatically.
+## Builds in this repo
 
----
+This branch now builds **two Fabric jars from shared configurable logic**:
 
-## Compatibility
-
-| | |
+| Module | Target |
 |---|---|
-| **Minecraft** | 1.21.1 – 1.21.11 |
-| **Loader** | Fabric |
-| **Environment** | Server-side (works in singleplayer too) |
-| **Fabric API** | Required |
+| `mc121` | Minecraft `1.21.1` build intended for `1.21.1` through `1.21.11` |
+| `mc2612` | Minecraft `26.1.2` / `1.26.1.2` build |
+| `common` | Shared config + sizing logic + unit tests |
 
----
-
-## What It Does
-
-Applies `EntityAttributes.GENERIC_SCALE` to each mob on load, scaling hitbox and model together based on real-world measurements.
-
-| Mob | Real Height | Scale |
-|-----|------------|-------|
-| Spider | ~2.5cm body | 0.26× |
-| Bee | ~1.5cm | 0.25× |
-| Bat | ~6cm | 0.24× |
-| Rabbit | ~25cm | 0.50× |
-| Wolf | ~80cm shoulder | 0.88× |
-| Horse | ~1.6m shoulder | 1.05× |
-| Iron Golem | ~2.7m | 1.20× |
-| Elder Guardian | enormous | 1.35× |
-| Dolphin | ~2.5m long | 1.30× |
-
-Over 60 mobs rescaled. Full rationale and real-world references in [`RealSizeMod.java`](src/main/java/xyz/pyrehaven/realsize/RealSizeMod.java).
-
----
+Both platform jars include the shared `common` classes in the final mod jar.
 
 ## Features
 
-- **Accurate proportions** — real-world shoulder/body heights used as reference
-- **Server-side only** — no client mod needed, works in singleplayer too
-- **Hitbox + model scale together** — uses the native `GENERIC_SCALE` attribute added in 1.20.5
-- **Small mob visibility** — tracking range boosted for tiny mobs so they never cull at normal view distances
-- **Large mob terrain fix** — step height boosted for mobs over 1.10× so they can navigate terrain naturally
-- **Hard scale limits** — floor 0.22× (anything smaller is invisible), cap 1.45× (prevents ceiling clipping)
-- **1.21.11 mobs supported** — Nautilus and Zombie Nautilus included via runtime registry lookup
+- JSON config at `config/realsize.json`
+- Shared data-driven entity scale table keyed by registry ID
+- Small-mob tracking range boost driven by config thresholds
+- Large-mob step-height boost driven by config thresholds
+- 1.21.11-only mob compatibility on the 1.21 build via registry-ID lookup (`minecraft:nautilus`, `minecraft:zombie_nautilus`) instead of compile-time entity constants
 
----
+## Configuration
+
+RealSize writes `config/realsize.json` on first launch.
+
+### How to use the config
+
+1. Start the game or server once with the mod installed.
+2. Open `config/realsize.json`.
+3. Change the global limits or add/edit entries in `entityScales`.
+4. Restart the game or server to apply the new values.
+
+### What each field does
+
+- `floor` — minimum allowed scale after config values are read. Anything lower gets clamped up to this value.
+- `cap` — maximum allowed scale. Anything higher gets clamped down to this value.
+- `trackingRangeThreshold` — if a mob ends up below this scale, RealSize boosts tracking so it stays visible from farther away.
+- `minTrackingRangeChunks` — minimum chunk-based tracking range used for tiny mobs.
+- `minTrackingDistanceBlocks` — hard minimum block distance used for tiny-mob tracking.
+- `stepHeightBoostThreshold` — if a mob is at or above this scale, RealSize adds extra step height.
+- `stepHeightBoostAmount` — how much extra step height large mobs get.
+- `entityScales` — per-entity scale overrides keyed by registry ID such as `minecraft:bee`.
+
+### Example
+
+```json
+{
+  "floor": 0.22,
+  "cap": 1.45,
+  "trackingRangeThreshold": 0.6,
+  "minTrackingRangeChunks": 10,
+  "minTrackingDistanceBlocks": 128,
+  "stepHeightBoostThreshold": 1.1,
+  "stepHeightBoostAmount": 0.5,
+  "entityScales": {
+    "minecraft:bee": 0.25,
+    "minecraft:horse": 1.05,
+    "minecraft:nautilus": 0.4,
+    "minecraft:zombie_nautilus": 0.4
+  }
+}
+```
+
+### Practical examples
+
+- Make bees easier to see without changing anything else: lower only `minecraft:bee` in `entityScales`.
+- Keep extremely small mobs from disappearing too early: raise `minTrackingDistanceBlocks` or `minTrackingRangeChunks`.
+- Stop giant mobs from getting too large: lower `cap`.
+- Help oversized mobs walk over terrain more naturally: lower `stepHeightBoostThreshold` or raise `stepHeightBoostAmount`.
+
+## Building
+
+From the repository root:
+
+```bash
+./gradlew :common:test :mc121:build :mc2612:build
+```
+
+Artifacts:
+
+- `mc121/build/libs/realsize-mc121-<version>.jar`
+- `mc2612/build/libs/realsize-mc2612-<version>.jar`
 
 ## Installation
 
-1. Download the latest `.jar` from [Releases](https://github.com/phred2026-cyber/realsize-mod/releases)
-2. Drop it in your server's `mods/` folder (alongside Fabric API)
-3. Restart — done
-
----
-
-## Links
-
-- 🔥 [PyreHaven Discord](https://discord.gg/tZ6Hx2ETA3) — support, feedback, hang out
-- 📦 [Modrinth](https://modrinth.com/mod/realsize) — download page
-- 🌐 [PyreHaven](https://pyrehaven.xyz) — the Minecraft server this was built for
-
----
-
-*Built by [PyreHaven](https://pyrehaven.xyz) — chaotic worlds, safe community.*
+1. Pick the jar for your Minecraft version:
+   - `realsize-mc121-<version>.jar` for Minecraft `1.21.1` through `1.21.11`
+   - `realsize-mc2612-<version>.jar` for Minecraft `26.1.2` / `1.26.1.2`
+2. Drop that one jar into `mods/` with the matching Fabric Loader and Fabric API modules.
+3. Start once to generate `config/realsize.json`.
+4. Edit config if desired and restart.

@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "realsize",
+  "version": "${version}",
+  "name": "RealSize",
+  "description": "Scales mobs to configurable real-world proportions with config/realsize.json.",
+  "authors": [
+    "PyreHaven"
+  ],
+  "contact": {},
+  "license": "MIT",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "xyz.pyrehaven.realsize.RealSizeMod"
+    ]
+  },
+  "mixins": [
+    "realsize.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": "${loader_dependency}",
+    "minecraft": "${minecraft_dependency}",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}

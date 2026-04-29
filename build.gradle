@@ -1,67 +1,23 @@
 plugins {
-	id 'fabric-loom' version '1.14-SNAPSHOT'
-	id 'maven-publish'
+    id 'base'
 }
 
-version = project.mod_version
 group = project.maven_group
+version = project.mod_version
 
 base {
-	archivesName = project.archives_base_name
+    archivesName = project.archives_base_name
 }
 
-repositories {
-	mavenCentral()
+allprojects {
+    group = rootProject.group
+    version = rootProject.version
 }
 
-loom {
-	noIntermediateMappings()
-
-	mods {
-		"realsize" {
-			sourceSet sourceSets.main
-		}
-	}
+tasks.named('build') {
+    dependsOn(':common:test', ':mc121:build', ':mc2612:build')
 }
 
-dependencies {
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings files("gradle/minecraft/identity-official-26.1.2.jar")
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-	modImplementation "net.fabricmc.fabric-api:fabric-lifecycle-events-v1:4.1.0+6d50a0854c"
-	modImplementation "net.fabricmc.fabric-api:fabric-api-base:2.0.3+ece063234c"
-}
-
-processResources {
-	inputs.property "version", project.version
-
-	filesMatching("fabric.mod.json") {
-		expand "version": inputs.properties.version
-	}
-}
-
-tasks.withType(JavaCompile).configureEach {
-	it.options.release = 21
-}
-
-java {
-	withSourcesJar()
-	sourceCompatibility = JavaVersion.VERSION_21
-	targetCompatibility = JavaVersion.VERSION_21
-}
-
-jar {
-	inputs.property "archivesName", project.base.archivesName
-
-	from("LICENSE") {
-		rename { "${it}_${inputs.properties.archivesName}" }
-	}
-}
-
-publishing {
-	publications {
-		mavenJava(MavenPublication) {
-			from components.java
-		}
-	}
+tasks.register('checkAll') {
+    dependsOn(':common:test', ':mc121:check', ':mc2612:check')
 }
