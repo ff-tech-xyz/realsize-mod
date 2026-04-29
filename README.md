@@ -45,9 +45,9 @@ Over 60 mobs rescaled. Full rationale and real-world references in [`RealSizeMod
 - **Server-side only** — no client mod needed, works in singleplayer too
 - **Hitbox + model scale together** — uses the native `GENERIC_SCALE` attribute added in 1.20.5
 - **Small mob visibility** — tracking range boosted for tiny mobs so they never cull at normal view distances
-- **Large mob terrain fix** — step height boosted for mobs over 1.10× so they can navigate terrain naturally
-- **Hard scale limits** — floor 0.22× (anything smaller is invisible), cap 1.45× (prevents ceiling clipping)
-- **1.21.11 mobs supported** — Nautilus and Zombie Nautilus included via runtime registry lookup
+- **Large mob terrain fix** — step height boosted for mobs over the configured threshold so they can navigate terrain naturally
+- **Fully configurable** — every scale and tuning constant lives in `config/realsize.json`
+- **1.21.11 mobs supported** — Nautilus and Zombie Nautilus included by default via registry ID config entries
 
 ---
 
@@ -55,7 +55,47 @@ Over 60 mobs rescaled. Full rationale and real-world references in [`RealSizeMod
 
 1. Download the latest `.jar` from [Releases](https://github.com/phred2026-cyber/realsize-mod/releases)
 2. Drop it in your server's `mods/` folder (alongside Fabric API)
-3. Restart — done
+3. Start the game/server once to generate `config/realsize.json`
+4. Edit the config if desired, then restart to apply changes
+
+---
+
+## Configuration
+
+RealSize now writes a JSON config file at `config/realsize.json` the first time it starts. If the file is missing, a new one is generated with the current default behavior.
+
+Server owners can edit:
+
+- `floor`
+- `cap`
+- `trackingRangeThreshold`
+- `minTrackingRangeChunks`
+- `minTrackingDistanceBlocks`
+- `stepHeightBoostThreshold`
+- `stepHeightBoostAmount`
+- `entityScales` keyed by registry ID, for example `minecraft:bee`
+
+Example:
+
+```json
+{
+  "floor": 0.22,
+  "cap": 1.45,
+  "trackingRangeThreshold": 0.6,
+  "minTrackingRangeChunks": 10,
+  "minTrackingDistanceBlocks": 128,
+  "stepHeightBoostThreshold": 1.1,
+  "stepHeightBoostAmount": 0.5,
+  "entityScales": {
+    "minecraft:bee": 0.25,
+    "minecraft:horse": 1.05,
+    "minecraft:nautilus": 0.4,
+    "minecraft:zombie_nautilus": 0.4
+  }
+}
+```
+
+Unspecified values fall back to the built-in defaults, so you can override only the parts you care about.
 
 ---
 
