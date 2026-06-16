@@ -4,7 +4,7 @@ plugins {
 }
 
 base {
-    archivesName = "${project.archives_base_name}-mc2612"
+    archivesName = "${project.archives_base_name}-mc262"
 }
 
 repositories {
