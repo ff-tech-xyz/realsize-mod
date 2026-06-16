@@ -25,7 +25,7 @@ dependencies {
     compileOnly project(':common')
 
     minecraft "com.mojang:minecraft:${project.minecraft_2612_version}"
-    mappings files(rootProject.file('gradle/minecraft/identity-official-26.1.2.jar'))
+    mappings files(rootProject.file('gradle/minecraft/identity-official-26.2.jar'))
     modImplementation "net.fabricmc:fabric-loader:${project.loader_2612_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-lifecycle-events-v1:${project.fabric_2612_lifecycle_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api-base:${project.fabric_2612_api_base_version}"
