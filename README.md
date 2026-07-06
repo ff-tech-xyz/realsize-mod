@@ -1,28 +1,35 @@
 # RealSize
 
-**Scales Minecraft mobs to configurable real-world proportions.**
+RealSize makes Minecraft mobs feel closer to real-world sizes. Bees can be tiny, horses can feel properly large, and server owners decide how far to push the effect.
 
-RealSize is a server-side Fabric mod that applies the native scale attribute to mobs, keeps small mobs visible by raising tracking distance when needed, and boosts step height for large scaled mobs.
+It is a server-side Fabric mod for servers and modpacks that want more believable mob scale without making small mobs vanish or large mobs get stuck on every little bump. RealSize uses Minecraft's scale attributes, adds extra tracking help for tiny mobs, and gives oversized mobs a small step-height boost so they move through terrain more naturally.
+
+## What it does
+
+- Resizes mobs from a simple JSON config at `config/realsize.json`.
+- Lets server owners set per-mob scale values with registry IDs like `minecraft:bee` or `minecraft:horse`.
+- Keeps very small mobs visible from farther away by increasing their tracking range.
+- Helps large scaled mobs step over terrain instead of snagging on small blocks.
+- Supports both the current PyreHaven 26.x target and Minecraft 1.21.1 through 1.21.11 with separate jars.
+
+## Good to know
+
+- Server side: install it on the server. Players do not need the mod on their client.
+- Loader: Fabric.
+- Config file: RealSize writes `config/realsize.json` the first time it runs.
+- Changes apply after a restart.
 
 ## Builds in this repo
 
-This branch now builds **two Fabric jars from shared configurable logic**:
+This repo builds two Fabric jars from shared sizing logic:
 
 | Module | Target |
 |---|---|
 | `mc121` | Minecraft `1.21.1` build intended for `1.21.1` through `1.21.11` |
 | `mc2612` | Minecraft `26.1.2` / `1.26.1.2` build |
-| `common` | Shared config + sizing logic + unit tests |
+| `common` | Shared config, sizing logic, and tests |
 
 Both platform jars include the shared `common` classes in the final mod jar.
-
-## Features
-
-- JSON config at `config/realsize.json`
-- Shared data-driven entity scale table keyed by registry ID
-- Small-mob tracking range boost driven by config thresholds
-- Large-mob step-height boost driven by config thresholds
-- 1.21.11-only mob compatibility on the 1.21 build via registry-ID lookup (`minecraft:nautilus`, `minecraft:zombie_nautilus`) instead of compile-time entity constants
 
 ## Configuration
 

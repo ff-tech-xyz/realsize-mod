@@ -3,7 +3,7 @@
   "id": "realsize",
   "version": "${version}",
   "name": "RealSize",
-  "description": "Scales mobs to configurable real-world proportions with config/realsize.json.",
+  "description": "Makes mobs feel closer to real-world sizes, with server-controlled config for tiny and oversized mobs.",
   "authors": [
     "PyreHaven"
   ],
