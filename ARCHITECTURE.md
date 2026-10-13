@@ -2,9 +2,9 @@
 
 Status: proposed rebuild, not implemented. This branch deliberately contains no
 mod entrypoint, mixins, production classes, test classes, or mod metadata yet.
-The legacy implementation was removed in the preceding commit. The original
-README is retained as a product/configuration reference, not a claim that this
-branch currently ships a working mod.
+The legacy implementation was removed in the preceding commit. The legacy
+README is retained verbatim in LEGACY_README.md as a product/configuration
+reference, not a claim that this branch currently ships a working mod.
 
 ## Scope
 
@@ -27,6 +27,7 @@ the build-tool upgrade. Only create files as their owning phase is approved.
 realsize-mod/
 ├── ARCHITECTURE.md
 ├── README.md
+├── LEGACY_README.md
 ├── LICENSE
 ├── branding/
 │   └── icon.png
@@ -183,7 +184,6 @@ commit order. It does not approve scaffolding or a release.
 
 - Fabric's 26.3 example branch: `FabricMC/fabric-example-mod`, branch `26.3`.
 - Fabric Loom docs: https://docs.fabricmc.net/develop/loom/
-- Fabric 26.3 guidance: https://fabricmc.net/2026/09/15/263.html
 - Live Loader metadata: https://meta.fabricmc.net/v2/versions/loader/26.3
 - Fabric Maven release metadata for Loom and Fabric API.
 

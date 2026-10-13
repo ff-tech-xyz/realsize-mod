@@ -1,5 +1,5 @@
 plugins {
-    id 'base'
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
 
 group = project.maven_group
@@ -9,15 +9,27 @@ base {
     archivesName = project.archives_base_name
 }
 
-allprojects {
-    group = rootProject.group
-    version = rootProject.version
+layout.buildDirectory = file('../../runtime/realsize-mod/build')
+
+repositories {
+    mavenCentral()
 }
 
-tasks.named('build') {
-    dependsOn(':common:test', ':mc121:build', ':mc2612:build')
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
-tasks.register('checkAll') {
-    dependsOn(':common:test', ':mc121:check', ':mc2612:check')
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+}
+
+// Groundwork only: no metadata or implementation exists to package yet.
+tasks.named('jar') {
+    enabled = false
 }
