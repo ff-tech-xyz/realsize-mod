@@ -72,6 +72,9 @@ tasks.named('test') {
     inputs.file(tasks.named('jar').flatMap { it.archiveFile })
     systemProperty 'realsize.test.jar', tasks.named('jar').get().archiveFile.get().asFile.absolutePath
     systemProperty 'realsize.test.project', projectDir.absolutePath
+    def testTemp = file('../../runtime/realsize-mod/test-temp')
+    systemProperty 'java.io.tmpdir', testTemp.absolutePath
+    doFirst { testTemp.mkdirs() }
 }
 
 tasks.named('processResources') {

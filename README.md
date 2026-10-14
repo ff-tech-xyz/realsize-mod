@@ -98,6 +98,22 @@ Scales are positive and finite. Floors cannot exceed the cap. Missing required
 v2 fields are validation errors; legacy files go through the explicit migration
 instead of an implicit default merge.
 
+The supported legacy input is the old unversioned JSON object. It must contain
+`floor`, `cap`, and `entityScales`; the old tracking and flat-step fields are
+optional, validated if present, and removed with a named migration diagnostic.
+Migration retains the explicit map, sets `hostileFloor` to `max(floor, 0.6)`,
+enables proportional movement and the local rendering option, and uses `1.49`
+for `maxStepHeight`. Incompatible bounds fail rather than silently changing
+`cap`. A v2-shaped file missing `configVersion` is an error, not legacy input.
+Other version numbers are unsupported.
+
+The exact original bytes are saved as `realsize.json.legacy.bak` before atomic
+replacement. An existing backup blocks migration rather than being overwritten;
+inspect and move it before retrying. If atomic replacement is unsupported, the
+operation fails without a non-atomic fallback. Valid v2 files are read without
+rewriting. Duplicate keys, unknown top-level fields, string-coerced numbers or
+booleans, and symbolic-link config paths are rejected with named diagnostics.
+
 `/realsize reload` requires permission level 2. A successful reload replaces
 one validated settings snapshot and reconciles loaded mobs on the server thread.
 A failed reload leaves the previous snapshot and mobs unchanged and reports

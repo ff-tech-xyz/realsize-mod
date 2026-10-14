@@ -10,7 +10,10 @@ this document alone.
 Current checkout: executable scaffold with isolated main/client entrypoints,
 Fabric metadata, a packaged JAR, an artifact smoke test, and a real server
 GameTest. It uses one 26.3 project, Java 25, non-remapping Loom, and no identity
-mapping JAR. No gameplay features are implemented. The former FEATURES.md mentioned
+mapping JAR. Configuration parsing, immutable snapshots, first-run defaults, and
+legacy file migration are implemented and tested as a standalone boundary;
+entrypoint/lifecycle wiring awaits registry resolution. No gameplay features
+are implemented. The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
 
 ## Open fixes
@@ -174,11 +177,111 @@ and `run/gameTest/gametest-results.xml`.
 The independently reviewed commit and read-back remote SHA are recorded in the
 Kanban handoff; this evidence is included in that commit.
 
-Remaining gates are unchanged: configuration/migration, registry resolution,
-sizing policy and lifecycle, reload, movement, spawn clearance, and optional
-client culling are unimplemented. RS-01 through RS-08 and RS-10 through RS-14
-remain open. Packaged version/contact metadata is groundwork for RS-12/RS-13;
+At the scaffold commit, configuration/migration, registry resolution, sizing
+policy and lifecycle, reload, movement, spawn clearance, and optional client
+culling were unimplemented. RS-01 through RS-08 and RS-10 through RS-14 remained
+open. Packaged version/contact metadata is groundwork for RS-12/RS-13;
 no external Modrinth page was edited. CI execution and its final behavior,
 connected vanilla/modded clients, single-player, gameplay/collision/combat,
 world/config migration and uninstall checks have **not** been performed. A
 passing scaffold boot is not evidence for any of those release gates.
+
+## Configuration and legacy migration evidence — 2026-10-14
+
+Scope: Kanban `t_e6f589f7`, branch `update/V.1.2.0`, base
+`1e28d7a6ba091908dacdfdea9fdbc89c627a1540`. `ConfigFile` now owns strict JSON
+parsing, schema validation, first-run creation, and explicit unversioned legacy
+migration. `RealSizeConfig` is a validated immutable record with a defensive map
+copy. `DefaultScales` is used only for missing files; existing maps, including
+empty maps, never merge with defaults. Unknown well-formed IDs/tags survive
+unchanged for the next feature's registry resolver; this card does not invent
+registry warnings, tag precedence/conflict handling, or active settings state.
+
+Migration requires legacy `floor`, `cap`, and `entityScales`. Optional obsolete
+tracking/flat-step fields are validated then removed, with a diagnostic naming
+the config, backup, schema change, and removed fields. The hostile floor becomes
+`max(floor, 0.6)`; incompatible caps fail unchanged. Proportional movement and
+the client-local toggle default to true, with `maxStepHeight=1.49`. Explicit
+legacy selectors and values remain explicit, not clamped or default-merged.
+Missing v2 fields, mixed unversioned/v2 shapes, unsupported versions, duplicate
+keys, invalid ID syntax, malformed JSON, wrong scalar types, nonpositive or
+non-finite scales, and incompatible bounds all fail with the file and field.
+Schema versions are compared as exact decimals, not rounded doubles.
+
+Writes prepare and force a same-directory temporary file. Migration creates
+`realsize.json.legacy.bak` with `CREATE_NEW`, writes the original bytes and
+forces them before `ATOMIC_MOVE` replacement. There is no non-atomic fallback.
+Existing backups are never overwritten; config symlinks are rejected. Failed
+preparation/backup leaves the config unchanged and cleans the temporary file.
+If replacement itself fails, the original config and completed backup remain.
+No concurrent-writer or power-loss/directory-fsync guarantee is claimed.
+
+Default-table review retained all 50 legacy selections. Six hostile entries
+were raised to `0.6`: spider, cave spider, silverfish, endermite, vex, and zombie
+nautilus. All other requested values remain unchanged. The actual 26.3 server
+GameTest resolves every default ID, creates its entity, verifies it is a mob,
+and checks the configured category floor/cap. This tests the table; it is not
+the production registry-resolution feature or a gameplay/combat size claim.
+
+Commands run from the repository:
+
+- `./gradlew test --tests '*ConfigFileTest' --console=plain`, initial tracer:
+  **BUILD FAILED** at compilation because `ConfigFile` did not exist. After
+  implementation, **BUILD SUCCESSFUL**, one real JUnit test executed. This
+  initial compile failure is not counted as a behavioral assertion failure.
+- The same command for strict validation: **4 tests completed, 2 failed** before
+  validation; **BUILD SUCCESSFUL** after implementation. Missing required fields
+  and zero/invalid scales had previously been accepted. Tests compare original
+  file bytes after every rejected input rather than comparing parsed objects.
+- The same command for migration: **8 tests completed, 4 failed** before migration
+  and symlink handling; **BUILD SUCCESSFUL** afterward. Successful migration
+  compares the backup to the exact original bytes, verifies deleted/default
+  rules stay absent, and verifies the next read neither rewrites nor re-migrates.
+  Existing backup files/directories and unwritable config directories exercise
+  real I/O failures. Invalid migrations produce no backup or replacement.
+- The same command for exact schema versions: **11 tests completed, 1 failed**
+  on `configVersion: 2.0000000000000001` before exact decimal comparison. The
+  completed clean build below passes it. Additional checks verify defensive map
+  copying and that an already-open handle still reads the legacy inode after
+  migration, proving replacement rather than in-place truncation.
+- Independent exact-diff review found an extreme-exponent diagnostic losing its
+  field path. Added the regression first and ran the same config-test command:
+  **12 tests completed, 1 failed** on `1e-2147483648`. Numeric-token conversion
+  now reports the reader's field path for unsupported decimal exponents; tests
+  also cover `1e2147483648`, exact-byte preservation, and no backup on failure.
+- `./gradlew clean build --console=plain`: **BUILD SUCCESSFUL**, real common,
+  client, GameTest, and test compilation plus JAR packaging. JUnit XML reports
+  **13 tests, 0 failures, 0 errors, 0 skipped**: 12 config tests and the existing
+  artifact inspection. The Minecraft server reports **All 3 required tests
+  passed**: two RealSize tests (scaffold and default-table validation) and
+  vanilla `minecraft:always_pass`. Test temporary files now live under
+  `../../runtime/realsize-mod/test-temp`.
+- `python3 scripts/server-smoke.py`: **PASS**, real dedicated dev server reached
+  `Done`, saved worlds, exited **0**; JVM trace includes `RealSizeMod` and no
+  RealSize or Minecraft client classes. Entrypoints remain scaffold-only: config
+  loading is exercised by real file tests, not yet wired to active sizing or
+  startup resolution. The later registry/lifecycle features own that wiring.
+- Python inspection of JUnit/GameTest XML confirmed the counts and named tests.
+  Built JAR SHA-256:
+  `d40d9ff27f30b036787fbadc84597ef2a45534d87ffb3375c146069cf1cd47fb`.
+  `git diff --check`: exit **0**. Accessible `/proc` cwd/fd scan found **no
+  runtime references** after the server stopped.
+
+Logs under `../../runtime/realsize-mod/evidence/`: `config-first-red.log`,
+`config-first-green.log`, `config-validation-red.log`,
+`config-validation-green.log`, `config-migration-red.log`,
+`config-migration-green.log`, `config-version-red.log`, `config-clean-build.log`,
+`config-review-regression-red.log`, `config-clean-build-reviewed.log`,
+`server-smoke.log`, and `server-classes.log`. JUnit and GameTest XML paths are
+the same as the scaffold evidence, with the additional
+`build/test-results/test/TEST-xyz.pyrehaven.realsize.config.ConfigFileTest.xml`.
+Independent exact-diff review, the commit, and read-back remote SHA are recorded
+in this card's Kanban handoff, not asserted before they occur.
+
+RS-04 remains open for registry/tag resolution and transactional live reload.
+Registry resolution, active startup wiring, sizing policy/lifecycle, movement,
+natural-spawn clearance, optional client culling, connected clients,
+single-player, world migration/uninstall, CI execution, and final release gates
+remain unperformed. No running dev server/client, server mixin, networking,
+registry implementation, next-card work, PR, merge, release, production write,
+or external Modrinth deployment is part of this feature.
