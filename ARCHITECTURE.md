@@ -73,10 +73,15 @@ realsize-mod/
     └── gametest/
         ├── java/xyz/pyrehaven/realsize/
         │   ├── ScaffoldGameTests.java
+        │   ├── ResolvedSettingsGameTests.java
         │   ├── SizingGameTests.java
         │   └── SpawnGameTests.java
         └── resources/
-            └── fabric.mod.json
+            ├── fabric.mod.json
+            └── data/realsize-test/tags/entity_type/
+                ├── only_bee.json
+                ├── mixed.json
+                └── empty.json
 ```
 
 ## Owners
