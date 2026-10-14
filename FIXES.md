@@ -14,8 +14,10 @@ mapping JAR. Configuration parsing, immutable snapshots, first-run defaults, and
 legacy file migration are implemented and tested as a standalone boundary.
 Registry/tag resolution is also implemented and tested against the 26.3 server;
 pure category/baby-aware sizing policy is implemented and unit-tested.
-Entrypoint/lifecycle wiring remains deferred. No gameplay features
-are implemented. The former FEATURES.md mentioned
+Transient entity sizing, legacy attribute cleanup, and common server load/growth
+wiring are implemented and exercised against actual mobs and chunk storage.
+Command/tag reload, movement, spawn clearance, and optional client culling remain
+deferred. The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
 
 ## Open fixes
@@ -462,3 +464,106 @@ single-player, world migration/uninstall, CI, and release gates remain unperform
 No movement formula or Minecraft attributes, next-card implementation, running
 server/client, server mixin, networking, new registry, PR, merge, release,
 production write, or external deployment is part of this feature.
+
+## Transient entity sizing lifecycle evidence — 2026-10-14
+
+Scope: Kanban `t_34417d51`, branch `update/V.1.2.0`, base
+`b374895030c48f15513be961d9e4adf960022962`. `EntitySizing` is the sole attribute
+mutation owner. It takes the immutable server-registry snapshot and pure policy,
+removes permanent modifiers in the exact `realsize` namespace from every
+instantiated living attribute on load, and applies `realsize:scale` using
+`ADD_MULTIPLIED_TOTAL` as a transient modifier. It never changes base attributes
+or foreign modifiers. An unchanged reconciliation retains the same modifier
+object and does not dirty the attribute. A replacement snapshot updates that ID;
+neutral/deleted/excluded rules remove it. Legacy step data is removed, but no new
+movement behavior is implemented here. A foreign/base scale that defeats the
+bounds is diagnosed when the owned scale is applied or changed, without a
+per-entity diagnostic state map or repeated warnings on every unchanged tick.
+
+Verified 26.3 APIs, inspected with `javap` against the actual resolved common and
+Fabric JARs: `LivingEntity.getAgeScale()` provides the vanilla age factor;
+`getScale()` reads the scale attribute without that factor; default dimensions
+multiply both. Attribute packing exposes all instantiated attributes and only
+their permanent modifiers, including legacy data on non-syncable attributes.
+`removeModifier` returns before dirtying when the ID is absent. No attribute or
+modifier packing occurs in the steady-state tick path.
+
+`RealSizeMod` loads/validates/resolves once at `SERVER_STARTING`, delegates
+`ServerEntityEvents.ENTITY_LOAD` to the owner, and reconciles loaded entities at
+`ServerTickEvents.END_LEVEL_TICK`. The pinned Fabric API has no growth callback;
+the level-end event runs after vanilla age changes without a second age cache,
+entity state map, or server mixin. These are common server callbacks, not a
+dedicated-only initializer or separate integrated-server implementation. The
+normal dedicated server has exercised startup; an interactive single-player
+session remains an explicit release gate, not a claimed test result. Startup
+configuration is necessary wiring for this feature; command and tag reload are
+still deferred to the next card.
+
+Commands run from the repository (logs in `../../runtime/realsize-mod/evidence/`):
+
+- `./gradlew runGameTest --console=plain`, first tracer: **BUILD FAILED** because
+  `EntitySizing` did not exist. After transient reconciliation was implemented,
+  **All 11 required tests passed**. Logs: `lifecycle-first-red.log` and
+  `lifecycle-first-green.log`. The initial failure is compilation, not a claimed
+  behavioral assertion failure.
+- Same command, legacy cleanup: **1 required test failed** of 13, naming
+  `Remove persistent realsize scale, preserve foreign scale`. After cleanup,
+  **All 13 required tests passed**. Logs: `lifecycle-cleanup-red.log` and
+  `lifecycle-cleanup-green.log`. Tests inspect scale, max-health, and step
+  attributes; preserve foreign/prefix-similar namespace modifiers, transient
+  non-scale modifiers, and exact base values; and serialize an actual baby.
+- Same command, registered lifecycle: **1 required test failed** of 14, naming
+  `Registered entity-load callback must bound actual baby chicken`. After root
+  wiring, **All 14 required tests passed**. Logs: `lifecycle-wiring-red.log` and
+  `lifecycle-wiring-green.log`. A chicken ages naturally from `-2` to adult;
+  the owned multiplier changes through the registered tick event. Additional
+  checks cover an actual hostile baby, neutral cow baby, absent-rule pig baby,
+  and actual collision width after growth.
+- Same command, real chunk save/load: **All 15 required tests passed** after
+  fixing the test harness. Log: `lifecycle-chunk-loaded.log`. Earlier harness
+  failures are retained, not called behavioral red cycles: `ChunkPos` is a record
+  using `containing`/accessors; dimension storage is under
+  `world/dimensions/minecraft/overworld`, obtained with `DimensionType.getStorageFolder`;
+  chunk entities must finish asynchronous loading/tracking before injecting
+  genuine legacy data. Saving during pending loads legitimately invoked cleanup
+  before that fixture could persist (`lifecycle-chunk-debug.log`). The corrected
+  test waits on real load/ticking status instead of guessing a delay.
+- `./gradlew clean build --console=plain`: **BUILD SUCCESSFUL**, 13 actionable
+  tasks, 11 executed and 2 up-to-date. XML inspection: **19 JUnit tests, 0 failures,
+  0 errors, 0 skipped**; **16 required Minecraft tests passed**, including **6 new
+  sizing GameTests**, 9 prior RealSize tests, and vanilla `minecraft:always_pass`.
+  Log: `lifecycle-clean-build.log`. The fixture initializer exists only in the
+  separate development mod and writes its disposable GameTest config. No Java
+  compilation or behavioral test is `NO-SOURCE`; the existing absent client
+  resources warning remains.
+- `python3 scripts/server-smoke.py`: **PASS**, real dedicated server initialized
+  the sizing owner, reached `Done`, saved worlds, and exited **0**. Class-load
+  trace contains `RealSizeMod` and `EntitySizing`, with no RealSize or Minecraft
+  client classes. Logs: `server-smoke.log` and `server-classes.log`.
+- Python XML/JAR inspection verifies the test counts, packaged sizing owner,
+  and absence of GameTests/test resources in the production artifact.
+  `git diff --check`: exit **0**. Accessible `/proc` cwd/fd inspection reports
+  **0 runtime process references** after shutdown.
+
+The chunk GameTest writes a genuine persistent legacy fixture to entity-region
+storage, reads its on-disk NBT, waits for removal reason `UNLOADED_TO_CHUNK` and an
+absent chunk, then reloads the chunk and verifies a different entity object with
+the same UUID. The baby remains a baby and has final adult-relative size `0.264`
+after its preserved foreign `1.2` multiplier. Resaving and reading the region
+proves that all permanent legacy RealSize data is gone and no transient RealSize
+data was serialized. The foreign modifier and scale/step/movement bases remain.
+On-disk NBT extracts are under
+`../../runtime/realsize-mod/run/gameTest/sizing-evidence/` as `chunk-legacy.nbt`,
+`chunk-legacy.snbt`, `chunk-migrated.nbt`, and `chunk-migrated.snbt`. These are
+actual saved data, not generated stand-ins. XML reports retain their usual paths.
+Independent exact-diff review, commit SHA, and remote read-back SHA are recorded
+in the Kanban handoff after those operations occur.
+
+RS-02 remains open for command/tag reload, changed-config chunk loading, and
+uninstall/untouched legacy chunks. RS-06/RS-07 now have actual category/baby/growth
+and chunk tests, but combat and broader gameplay remain unperformed. Movement,
+natural spawn clearance, optional client culling, connected vanilla/modded
+clients, interactive single-player, gameplay profiling, CI, and release gates
+remain open. No next-card implementation, server mixin, custom networking,
+client-required registry, running dev server/client, PR, merge, release,
+production change, or external deployment is part of this feature.

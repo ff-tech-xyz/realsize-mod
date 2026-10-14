@@ -66,8 +66,9 @@ def main():
                     process.wait()
     text = log.read_text()
     loaded = classes.read_text()
-    assert "RealSize scaffold initialized; gameplay features are not implemented yet." in text
+    assert "RealSize initialized; transient entity sizing lifecycle registered." in text
     assert "xyz.pyrehaven.realsize.RealSizeMod source:" in loaded
+    assert "xyz.pyrehaven.realsize.sizing.EntitySizing source:" in loaded
     assert "xyz.pyrehaven.realsize.client." not in loaded
     assert "net.minecraft.client." not in loaded
     assert "RealSize client scaffold initialized" not in text

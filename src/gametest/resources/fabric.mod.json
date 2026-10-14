@@ -5,9 +5,11 @@
   "name": "RealSize development tests",
   "environment": "server",
   "entrypoints": {
+    "main": ["xyz.pyrehaven.realsize.SizingGameTests"],
     "fabric-gametest": [
       "xyz.pyrehaven.realsize.ScaffoldGameTests",
-      "xyz.pyrehaven.realsize.ResolvedSettingsGameTests"
+      "xyz.pyrehaven.realsize.ResolvedSettingsGameTests",
+      "xyz.pyrehaven.realsize.SizingGameTests"
     ]
   },
   "depends": {

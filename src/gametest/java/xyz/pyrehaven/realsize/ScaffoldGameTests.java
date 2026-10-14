@@ -39,7 +39,7 @@ public final class ScaffoldGameTests {
         helper.assertTrue(loader.getModContainer("realsize").orElseThrow().getMetadata()
                 .getVersion().getFriendlyString().equals("1.2.0"), "Loader must see the declared artifact version");
         var bee = helper.spawn(EntityTypes.BEE, 1, 2, 1);
-        helper.assertTrue(bee.getScale() == 1.0, "The scaffold must leave vanilla mob scale untouched");
+        helper.assertTrue(bee.getScale() == 0.25, "Actual entrypoint must apply the GameTest fixture's bee scale");
         helper.succeed();
     }
 }
