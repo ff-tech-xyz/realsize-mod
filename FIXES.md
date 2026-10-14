@@ -16,7 +16,8 @@ Registry/tag resolution is also implemented and tested against the 26.3 server;
 pure category/baby-aware sizing policy is implemented and unit-tested.
 Transient entity sizing, legacy attribute cleanup, and common server load/growth
 wiring are implemented and exercised against actual mobs and chunk storage.
-Command/tag reload, movement, spawn clearance, and optional client culling remain
+Transactional command/tag reload and changed-config chunk loading are implemented
+and tested. Movement, spawn clearance, and optional client culling remain
 deferred. The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
 
@@ -567,3 +568,107 @@ clients, interactive single-player, gameplay profiling, CI, and release gates
 remain open. No next-card implementation, server mixin, custom networking,
 client-required registry, running dev server/client, PR, merge, release,
 production change, or external deployment is part of this feature.
+
+## Transactional configuration and tag reload evidence — 2026-10-14
+
+Scope: Kanban `t_524dcc8f`, branch `update/V.1.2.0`, base
+`cb5f52bfba48adc982ebb62eb3b603dc89451e9c`. The registered `/realsize reload`
+command requires Minecraft's level-2 `LEVEL_GAMEMASTERS` permission check. The
+composition root prepares a complete immutable resolved settings/policy owner,
+then replaces its single active owner reference and reconciles every loaded
+entity in every server level. Activation rejects a non-server-thread call.
+Attribute mutation still belongs only to `EntitySizing`; no entity state map,
+parallel sizing handler, networking, server mixin, or new registry was added.
+
+`ConfigFile.loadOrCreate` can now validate/resolve the complete candidate before
+first-run or migration writes. Parsing, schema, registry/tag conflict, or write
+failure prevents activation; invalid input stays byte-for-byte on disk. In
+particular, a legacy file with conflicting tag selections is not migrated and
+does not acquire a backup before resolution succeeds. Existing callers retain
+the same parse-only API. Startup uses the same full candidate preparation and
+still fails on an invalid configuration instead of silently using defaults.
+
+Verified API seam: `javap -c -p` against the pinned Fabric lifecycle JAR shows
+`END_DATA_PACK_RELOAD` dispatched by `handleAsync(..., MinecraftServer)` after
+the real resource reload future finishes, with a success flag. The GameTest
+observes the transformed callback on the actual server thread. Successful
+datapack reload re-resolves the active immutable config against the current
+server registry/tag bindings and uses the same activation/reconciliation path.
+It deliberately does not read uncommitted disk edits. A tag conflict logs the
+entity ID and both selectors and retains prior resolved membership and sizing;
+Minecraft's already-committed tags are not rolled back by RealSize. Failed
+Minecraft resource reloads do not activate a candidate.
+
+Commands run from the repository, with logs under `../../runtime/realsize-mod/evidence/`:
+
+- `./gradlew runGameTest --console=plain`, registered-command tracer:
+  **BUILD FAILED**, **1 of 17 required tests failed** because the command was
+  absent. Log: `reload-command-red.log`. The first implemented run also failed
+  the diagnostic assertion: the fixture's zero `floor` correctly reported
+  `floor`, not the test's assumed missing field. That harness expectation was
+  corrected, not claimed as a production fix. Logs: `reload-command-green.log`
+  (failed) and `reload-command-passed.log` (**All 17 required tests passed**).
+- Same command, tag integration with the callback deliberately absent:
+  **BUILD FAILED**, **1 of 18 required tests failed**, `Changed tags must
+  immediately remove/add loaded sizing`. Log: `reload-tags-red.log`. Restoring
+  the callback initially exposed a test-isolation problem: the failed run's
+  datapack remained selected in the reused GameTest world, causing four tests
+  to fail (`reload-tags-green.log`). The development initializer now removes
+  only its own stale fixture before world loading. The successful test restores
+  selected packs/config and removes its fixture. Corrected run:
+  **All 18 required tests passed**, `reload-tags-passed.log`.
+- `./gradlew clean build --console=plain`: **BUILD SUCCESSFUL**, **13 actionable
+  tasks: 11 executed, 2 up-to-date**. Actual common/client/GameTest/test Java
+  compilation and packaging ran. XML inspection reports **19 JUnit tests, 0
+  failures, 0 errors, 0 skipped**, and **18 required Minecraft tests passed**:
+  two new reload GameTests, 15 prior RealSize tests, and `minecraft:always_pass`.
+  Log: `reload-clean-build.log`. Intentionally absent resources/access wideners
+  still print `NO-SOURCE`; Java and behavioral tests do not.
+- `python3 scripts/server-smoke.py`: **PASS**, actual dedicated server initialized
+  RealSize, reached `Done`, saved worlds, and exited **0**. JVM trace contains
+  the common root/owner and no RealSize or Minecraft client classes. Logs:
+  `server-smoke.log` and `server-classes.log`.
+- `git diff --check`: exit **0**. Python XML/JAR inspection confirms the packaged
+  production code and absence of GameTest classes/resources. Accessible `/proc`
+  cwd/file-descriptor inspection finds **0 runtime process references** after
+  shutdown. Artifact SHA-256:
+  `4bc1f6382eb7495f8f304a571e7f0b742b399dac5faf6aa3ae1e49beaba6d88e`.
+
+The command test executes the registered Brigadier dispatcher with actual
+Minecraft level-0, level-1, and level-2 permission sets. Levels 0/1 cannot execute;
+level 2 updates a loaded bee before the command returns. Malformed v2 input,
+conflicting v2 tag rules, and conflicting legacy tag rules preserve exact disk
+bytes, loaded modifier identity, and the snapshot used by subsequently loaded
+mobs. Diagnostics name the file and failing field. Deleting the bee rule and
+setting chicken to neutral removes owned scale and preserves vanilla baby size.
+
+The datapack test writes real pack metadata and tag JSON under the disposable
+world, discovers/enables the pack, and calls actual `MinecraftServer.reloadResources`.
+Moving tag membership from bee to cow immediately removes bee sizing and applies
+cow sizing; adding a conflicting tag preserves previous loaded/newly loaded cow
+behavior; fixing the pack recovers. Four real resource reloads execute, including
+restoration of original packs. Invalid uncommitted config bytes remain unchanged
+throughout. This is transformed Fabric/Minecraft integration, not direct test-only
+event invocation or registry rebinding standing in for reload wiring.
+
+The existing chunk-region test now reloads config while its saved baby chicken
+is genuinely unloaded (`UNLOADED_TO_CHUNK`, absent chunk/entity). Reload does not
+force that chunk to load. Loading it afterward creates a distinct object with
+the same UUID and applies the new `0.8` rule, giving final adult-relative scale
+`0.48` after its preserved foreign `1.2` multiplier. Actual on-disk region NBT
+still proves legacy cleanup, foreign preservation, and no transient owned
+serialization. Evidence remains in `run/gameTest/sizing-evidence/chunk-*.nbt`
+and `.snbt`. This supersedes the earlier lifecycle test's `0.264` expectation;
+the earlier evidence section records that commit's actual result.
+
+Reports remain `build/test-results/test/TEST-*.xml` and
+`run/gameTest/gametest-results.xml` under the runtime root. Independent exact-diff
+review, commit SHA, and read-back remote SHA are recorded in the Kanban handoff
+after those operations occur; this evidence is included in the feature commit.
+RS-04's local configuration/reload contract is now exercised. Its release-wide
+acceptance, RS-02 uninstall/untouched legacy chunks, movement and collision/combat
+gates, natural spawn clearance, optional culling, connected vanilla/modded clients,
+interactive integrated-server single-player, gameplay profiling, CI execution,
+and release validation remain open. No next-card implementation, running dev
+server/client, PR, merge, release, production mutation, or public deployment is
+part of this feature.

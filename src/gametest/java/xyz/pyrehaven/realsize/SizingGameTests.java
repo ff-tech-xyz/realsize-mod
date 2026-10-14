@@ -36,10 +36,212 @@ import xyz.pyrehaven.realsize.sizing.EntitySizing;
 public final class SizingGameTests implements ModInitializer {
     private static final Identifier OWNED_SCALE = Identifier.parse("realsize:scale");
     private static final Identifier FOREIGN_SCALE = Identifier.parse("othermod:scale");
+    private static int completedResourceReloads;
+    private static boolean resourceReloadOnServerThread;
+
+    @GameTest(setupTicks = 1250, maxTicks = 2400)
+    public void realDatapackReloadReconcilesTagsAndPreservesFailedSnapshot(GameTestHelper helper) throws Exception {
+        var server = helper.getLevel().getServer();
+        var file = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
+        byte[] original = Files.readAllBytes(file);
+        var pack = server.getWorldPath(LevelResource.DATAPACK_DIR).resolve("realsize-reload-test");
+        var tags = pack.resolve("data/realsize-test/tags/entity_type");
+        Files.createDirectories(tags);
+        var format = net.minecraft.SharedConstants.getCurrentVersion().packVersion(net.minecraft.server.packs.PackType.SERVER_DATA);
+        String version = "[" + format.major() + "," + format.minor() + "]";
+        Files.writeString(pack.resolve("pack.mcmeta"), "{\"pack\":{\"description\":\"RealSize reload test\",\"min_format\":"
+                + version + ",\"max_format\":" + version + "}}");
+        writeTag(tags, "only_bee", "minecraft:cow");
+        writeTag(tags, "empty", null);
+        writeReloadConfig(Map.of("#realsize-test:only_bee", 0.4, "#realsize-test:empty", 0.8));
+        executeReload(server);
+        var bee = helper.spawn(EntityTypes.BEE, 1, 2, 1);
+        var cow = helper.spawn(EntityTypes.COW, 2, 2, 1);
+        cow.setNoAi(true);
+        cow.setNoGravity(true);
+        cow.setPersistenceRequired();
+        helper.assertTrue(Math.abs(bee.getScale() - 0.4) < 0.00001 && cow.getScale() == 1.0f,
+                "Active snapshot must initially use original pack tags");
+        byte[] invalidDisk = "not committed config".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Files.write(file, invalidDisk);
+        var selected = new java.util.ArrayList<>(server.getPackRepository().getSelectedIds());
+        var withFixture = new java.util.ArrayList<>(selected);
+        withFixture.add("file/realsize-reload-test");
+        server.getPackRepository().reload();
+        helper.assertTrue(server.getPackRepository().isAvailable("file/realsize-reload-test"), "Real datapack must be discovered");
+        var future = new java.util.concurrent.atomic.AtomicReference<java.util.concurrent.CompletableFuture<Void>>();
+        int firstReload = completedResourceReloads + 1;
+        future.set(server.reloadResources(withFixture));
+        helper.startSequence().thenWaitUntil(() -> {
+            helper.assertTrue(future.get().isDone() && completedResourceReloads >= firstReload, "Real resource reload must finish");
+        }).thenExecute(() -> {
+            future.get().join();
+            helper.assertTrue(resourceReloadOnServerThread, "Actual Fabric completion must run on server thread");
+            helper.assertTrue(bee.getAttribute(Attributes.SCALE).getModifier(OWNED_SCALE) == null
+                    && Math.abs(cow.getScale() - 0.4) < 0.00001, "Changed tags must immediately remove/add loaded sizing");
+            assertBytes(helper, file, invalidDisk);
+            writeTagUnchecked(tags, "empty", "minecraft:cow");
+            future.set(server.reloadResources(withFixture));
+        }).thenWaitUntil(() -> {
+            helper.assertTrue(future.get().isDone() && completedResourceReloads >= firstReload + 1, "Conflicting pack must finish reload");
+        }).thenExecute(() -> {
+            future.get().join();
+            helper.assertTrue(Math.abs(cow.getScale() - 0.4) < 0.00001 && bee.getScale() == 1.0f,
+                    "Tag conflict must keep prior type membership and loaded mobs");
+            var newCow = helper.spawn(EntityTypes.COW, 2, 2, 2);
+            helper.assertTrue(Math.abs(newCow.getScale() - 0.4) < 0.00001, "Failed tag resolution must preserve snapshot on load");
+            assertBytes(helper, file, invalidDisk);
+            writeTagUnchecked(tags, "only_bee", "minecraft:bee");
+            writeTagUnchecked(tags, "empty", null);
+            future.set(server.reloadResources(withFixture));
+        }).thenWaitUntil(() -> {
+            helper.assertTrue(future.get().isDone() && completedResourceReloads >= firstReload + 2, "Repaired pack must finish reload");
+        }).thenExecute(() -> {
+            future.get().join();
+            helper.assertTrue(Math.abs(bee.getScale() - 0.4) < 0.00001 && cow.getScale() == 1.0f,
+                    "Later valid tag reload must recover via same owner");
+            assertBytes(helper, file, invalidDisk);
+            future.set(server.reloadResources(selected));
+        }).thenWaitUntil(() -> {
+            helper.assertTrue(future.get().isDone() && completedResourceReloads >= firstReload + 3, "Original packs must be restored");
+        }).thenExecute(() -> {
+            future.get().join();
+            try {
+                Files.write(file, original);
+                executeReload(server);
+                Files.delete(tags.resolve("only_bee.json"));
+                Files.delete(tags.resolve("empty.json"));
+                Files.delete(pack.resolve("pack.mcmeta"));
+                Files.delete(tags);
+                Files.delete(tags.getParent());
+                Files.delete(tags.getParent().getParent());
+                Files.delete(pack.resolve("data"));
+                Files.delete(pack);
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+        }).thenSucceed();
+    }
+
+    private static void assertBytes(GameTestHelper helper, java.nio.file.Path file, byte[] expected) {
+        try {
+            helper.assertTrue(java.util.Arrays.equals(expected, Files.readAllBytes(file)), "Datapack reload must not read/rewrite disk edits");
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+    }
+
+    private static void writeTag(java.nio.file.Path tags, String name, String member) throws IOException {
+        Files.writeString(tags.resolve(name + ".json"), "{\"replace\":true,\"values\":["
+                + (member == null ? "" : "\"" + member + "\"") + "]}");
+    }
+
+    private static void writeTagUnchecked(java.nio.file.Path tags, String name, String member) {
+        try {
+            writeTag(tags, name, member);
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+    }
+
+    private static void executeReload(net.minecraft.server.MinecraftServer server) {
+        try {
+            if (server.getCommands().getDispatcher().execute("realsize reload", server.createCommandSourceStack()) != 1) {
+                throw new IllegalStateException("Fixture reload must succeed");
+            }
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
+
+    @GameTest(setupTicks = 40)
+    public void registeredReloadIsPermissionGatedTransactionalAndAuthoritative(GameTestHelper helper) throws Exception {
+        var server = helper.getLevel().getServer();
+        var file = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
+        byte[] original = Files.readAllBytes(file);
+        var bee = helper.spawn(EntityTypes.BEE, 1, 2, 1);
+        var baby = helper.spawn(EntityTypes.CHICKEN, 2, 2, 1);
+        baby.setBaby(true);
+        var messages = new java.util.ArrayList<String>();
+        var output = new net.minecraft.commands.CommandSource() {
+            public void sendSystemMessage(net.minecraft.network.chat.Component message) { messages.add(message.getString()); }
+            public boolean acceptsSuccess() { return true; }
+            public boolean acceptsFailure() { return true; }
+            public boolean shouldInformAdmins() { return false; }
+        };
+        var source = server.createCommandSourceStack().withSource(output)
+                .withPermission(net.minecraft.server.permissions.LevelBasedPermissionSet.GAMEMASTER);
+        try {
+            writeReloadConfig(Map.of("minecraft:bee", 0.4, "minecraft:chicken", 0.4));
+            for (var permissions : List.of(net.minecraft.server.permissions.LevelBasedPermissionSet.ALL,
+                    net.minecraft.server.permissions.LevelBasedPermissionSet.MODERATOR)) {
+                boolean rejected = false;
+                try {
+                    server.getCommands().getDispatcher().execute("realsize reload", source.withPermission(permissions));
+                } catch (com.mojang.brigadier.exceptions.CommandSyntaxException expected) {
+                    rejected = true;
+                }
+                helper.assertTrue(rejected && bee.getScale() == 0.25f, "Levels 0 and 1 must not execute reload");
+            }
+            helper.assertTrue(server.getCommands().getDispatcher().execute("realsize reload", source) == 1,
+                    "Permission level 2 must execute registered reload");
+            helper.assertTrue(Math.abs(bee.getScale() - 0.4) < 0.00001,
+                    "Success must immediately reconcile loaded mobs before command returns");
+            var owned = bee.getAttribute(Attributes.SCALE).getModifier(OWNED_SCALE);
+            byte[] invalid = "{\"configVersion\":2,\"floor\":0}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            Files.write(file, invalid);
+            messages.clear();
+            helper.assertTrue(server.getCommands().getDispatcher().execute("realsize reload", source) == 0,
+                    "Malformed candidate must return command failure");
+            helper.assertTrue(java.util.Arrays.equals(invalid, Files.readAllBytes(file)), "Invalid bytes must survive reload");
+            helper.assertTrue(bee.getAttribute(Attributes.SCALE).getModifier(OWNED_SCALE) == owned,
+                    "Failure must leave loaded modifier unchanged, including identity");
+            var next = helper.spawn(EntityTypes.BEE, 1, 2, 2);
+            helper.assertTrue(Math.abs(next.getScale() - 0.4) < 0.00001, "Failure must preserve snapshot for subsequent loads");
+            helper.assertTrue(messages.stream().anyMatch(m -> m.contains(file.toString()) && m.contains("floor")),
+                    "Failure must tell operator which file/field to fix");
+            writeReloadConfig(Map.of("#realsize-test:only_bee", 0.8, "#realsize-test:mixed", 0.9));
+            byte[] conflicting = Files.readAllBytes(file);
+            helper.assertTrue(server.getCommands().getDispatcher().execute("realsize reload", source) == 0
+                    && bee.getAttribute(Attributes.SCALE).getModifier(OWNED_SCALE) == owned,
+                    "Resolution conflict must preserve previous owner and loaded mobs");
+            helper.assertTrue(java.util.Arrays.equals(conflicting, Files.readAllBytes(file)), "Conflict bytes must survive");
+            byte[] legacyConflict = """
+                    {"floor":0.22,"cap":1.45,"entityScales":{
+                    "#realsize-test:only_bee":0.8,"#realsize-test:mixed":0.9}}
+                    """.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            Files.write(file, legacyConflict);
+            helper.assertTrue(server.getCommands().getDispatcher().execute("realsize reload", source) == 0
+                    && bee.getAttribute(Attributes.SCALE).getModifier(OWNED_SCALE) == owned,
+                    "Legacy candidate must resolve before migration or owner mutation");
+            helper.assertTrue(java.util.Arrays.equals(legacyConflict, Files.readAllBytes(file))
+                    && !Files.exists(file.resolveSibling("realsize.json.legacy.bak")),
+                    "Rejected legacy resolution must not rewrite or create a backup");
+            writeReloadConfig(Map.of("minecraft:chicken", 1.0));
+            helper.assertTrue(server.getCommands().getDispatcher().execute("realsize reload", source) == 1,
+                    "Neutral/deleted replacement must succeed");
+            helper.assertTrue(bee.getAttribute(Attributes.SCALE).getModifier(OWNED_SCALE) == null && bee.getScale() == 1.0f,
+                    "Deleted bee rule must remove scale without restoring defaults");
+            helper.assertTrue(baby.getAttribute(Attributes.SCALE).getModifier(OWNED_SCALE) == null
+                    && baby.getScale() * baby.getAgeScale() == 0.5f, "Neutral rule must preserve vanilla baby size");
+        } finally {
+            Files.write(file, original);
+            server.getCommands().getDispatcher().execute("realsize reload", source);
+        }
+        helper.succeed();
+    }
+
+    private static void writeReloadConfig(Map<String, Double> rules) throws IOException {
+        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, rules);
+        Files.writeString(FabricLoader.getInstance().getConfigDir().resolve("realsize.json"),
+                new GsonBuilder().setPrettyPrinting().create().toJson(config) + "\n");
+    }
 
     @GameTest(maxTicks = 1200)
-    public void realChunkUnloadReloadMigratesAndDoesNotSerializeTransientScale(GameTestHelper helper) {
+    public void realChunkUnloadReloadMigratesAndDoesNotSerializeTransientScale(GameTestHelper helper) throws IOException {
         var level = helper.getLevel();
+        var configFile = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
+        byte[] originalConfig = Files.readAllBytes(configFile);
         var position = helper.absolutePos(new BlockPos(1024, 5, 1024));
         var chunk = ChunkPos.containing(position);
         level.setChunkForced(chunk.x(), chunk.z(), true);
@@ -74,6 +276,14 @@ public final class SizingGameTests implements ModInitializer {
                     "Chunk manager must really unload, not discard or simulate reload");
             helper.assertTrue(level.getChunkSource().getChunkNow(chunk.x(), chunk.z()) == null, "Actual chunk must unload");
         }).thenExecute(() -> {
+            try {
+                writeReloadConfig(Map.of("minecraft:chicken", 0.8));
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+            executeReload(level.getServer());
+            helper.assertTrue(level.getEntityInAnyDimension(chicken.getUUID()) == null,
+                    "Config reload must not load an unloaded fixture");
             level.setChunkForced(chunk.x(), chunk.z(), true);
             level.getChunk(chunk.x(), chunk.z());
         }).thenWaitUntil(() -> {
@@ -82,8 +292,8 @@ public final class SizingGameTests implements ModInitializer {
         }).thenExecute(() -> {
             var reloaded = (Chicken) level.getEntityInAnyDimension(chicken.getUUID());
             helper.assertTrue(reloaded.isBaby(), "Saved baby age must survive chunk load");
-            helper.assertTrue(Math.abs(reloaded.getScale() * reloaded.getAgeScale() - 0.264) < 0.00001,
-                    "Registered load owner must use current policy and preserve foreign scale");
+            helper.assertTrue(Math.abs(reloaded.getScale() * reloaded.getAgeScale() - 0.48) < 0.00001,
+                    "Disk-loaded baby must use successfully reloaded config and preserve foreign scale");
             helper.assertTrue(reloaded.getAttribute(Attributes.SCALE).getPermanentModifiers().equals(java.util.Set.of(foreign)),
                     "Load must remove legacy scale and preserve foreign data");
             helper.assertTrue(reloaded.getAttribute(Attributes.STEP_HEIGHT).getModifiers().isEmpty(),
@@ -97,6 +307,12 @@ public final class SizingGameTests implements ModInitializer {
                     "Foreign scale must remain on disk after migration");
             writeEvidence(helper, "chunk-migrated", saved);
             level.setChunkForced(chunk.x(), chunk.z(), false);
+            try {
+                Files.write(configFile, originalConfig);
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+            executeReload(level.getServer());
         }).thenSucceed();
     }
 
@@ -141,6 +357,21 @@ public final class SizingGameTests implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        // GameTest reuses its world. Remove only our fixture after an aborted prior run.
+        var stalePack = FabricLoader.getInstance().getGameDir().resolve("world/datapacks/realsize-reload-test");
+        if (Files.exists(stalePack)) {
+            try (var paths = Files.walk(stalePack)) {
+                for (var path : paths.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                    Files.delete(path);
+                }
+            } catch (IOException exception) {
+                throw new UncheckedIOException(exception);
+            }
+        }
+        net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.END_DATA_PACK_RELOAD.register((server, resources, success) -> {
+            completedResourceReloads++;
+            resourceReloadOnServerThread = server.isSameThread();
+        });
         // Only this development mod writes the disposable GameTest server fixture.
         var file = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
         var fixture = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true,

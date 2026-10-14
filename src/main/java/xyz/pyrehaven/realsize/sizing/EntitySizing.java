@@ -8,6 +8,7 @@ import net.minecraft.world.entity.MobCategory;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import xyz.pyrehaven.realsize.config.ResolvedSettings;
+import xyz.pyrehaven.realsize.config.RealSizeConfig;
 
 public final class EntitySizing {
     private static final Identifier SCALE_ID = Identifier.fromNamespaceAndPath("realsize", "scale");
@@ -20,6 +21,10 @@ public final class EntitySizing {
         this.diagnostics = diagnostics;
         var config = settings.config();
         this.policy = new SizingPolicy(config.floor(), config.hostileFloor(), config.cap());
+    }
+
+    public RealSizeConfig config() {
+        return settings.config();
     }
 
     public void onLoad(Entity entity) {

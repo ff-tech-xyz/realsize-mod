@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public final class ConfigFile {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -37,27 +38,35 @@ public final class ConfigFile {
     }
 
     public static RealSizeConfig loadOrCreate(Path file, Consumer<String> diagnostics) throws IOException {
+        return loadOrCreate(file, diagnostics, Function.identity());
+    }
+
+    // Resolve the complete candidate before any first-run or migration write.
+    public static <T> T loadOrCreate(Path file, Consumer<String> diagnostics,
+            Function<RealSizeConfig, T> validate) throws IOException {
         try {
             if (Files.isSymbolicLink(file)) {
                 throw new IOException("$: symbolic-link config is not supported");
             }
             if (Files.notExists(file, LinkOption.NOFOLLOW_LINKS)) {
                 RealSizeConfig defaults = DefaultScales.config();
+                T candidate = validate.apply(defaults);
                 replaceAtomically(file, defaults, null);
-                return defaults;
+                return candidate;
             }
             byte[] original = Files.readAllBytes(file);
             String text = StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(original)).toString();
             JsonObject object = parse(text);
             if (object.has("configVersion")) {
-                return decode(object);
+                return validate.apply(decode(object));
             }
             RealSizeConfig migrated = migrate(object);
+            T candidate = validate.apply(migrated);
             replaceAtomically(file, migrated, original);
             diagnostics.accept(file + ": migrated unversioned legacy config to configVersion 2; original backup: "
                     + backupPath(file) + "; removed obsolete fields (no longer affect behavior): "
                     + String.join(", ", OBSOLETE_FIELDS));
-            return migrated;
+            return candidate;
         } catch (IOException | IllegalArgumentException | IllegalStateException exception) {
             throw new IOException(file + ": " + exception.getMessage(), exception);
         }
