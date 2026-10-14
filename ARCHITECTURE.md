@@ -170,6 +170,12 @@ It preserves frustum/visibility checks and vanilla server tracking. It operates
 on the entity's actual scale, including when its client has no matching server
 configuration. The client's local toggle disables the correction cleanly.
 
+Supported acceptance modes are multiplayer with RealSize on server and client,
+and single-player with RealSize on the client and its integrated server. With
+RealSize only on a dedicated server, all server features remain available to
+vanilla clients; the client culling correction alone is absent. The integrated
+server uses the same sizing lifecycle as a dedicated server, not a second path.
+
 Use MixinExtras `@ModifyReturnValue` if the verified 26.3 target supports it.
 Prove the target descriptor and injection execution with transformed tests and
 a real client. Fail closed for the required client injection. Register it only
@@ -208,5 +214,14 @@ result counts as behavioral verification; no 1.21 compatibility range is claimed
    modded clients, config/world migration, metadata link corrections, and tested
    build/install instructions. Record remaining unperformed checks explicitly.
 
-Implementation still requires phase approval. This documentation commit defines
-what completion means; it does not publish a release or claim those phases ran.
+Elijah has approved implementation of this update. Execution begins with one
+Kanban scaffold worker, followed by one separate worker per feature, strictly
+sequentially. Each worker exercises its deliverable, obtains independent review,
+updates the acceptance evidence, and commits before completing its task and
+releasing the next worker. Scaffold includes only executable build/test/runtime
+groundwork, not placeholder owners or bundled feature implementations. Features
+are configuration/migration, registry resolution, sizing policy, entity lifecycle,
+reload, movement, natural spawn clearance, and optional client culling. Final
+validation follows those commits. A blocked architecture or verification gate
+stops the chain; it is not silently waived. Approval to build does not authorize
+a merge, release, or external player-facing documentation deployment.

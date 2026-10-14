@@ -20,6 +20,10 @@ in the audit is not present in this checkout; ARCHITECTURE is the active contrac
   bee disappearance around 12 blocks before fixing it. Compare vanilla and
   modded clients, toggle off/on, verify server tracking unchanged and dedicated
   server client-class isolation. Treat audit distances as approximate until tested.
+  Cover both multiplayer with RealSize installed on server and client and
+  single-player with the integrated server. Server-only must retain all server
+  features with vanilla clients; record unchanged vanilla culling as the expected
+  limitation, not a failure of sizing or movement.
 - [ ] **RS-02 — Saved scale lifecycle.** Replace permanent/add-if-missing behavior
   with transient reconciliation. Prove config edits reach loaded mobs, current
   settings reach chunk-loaded mobs, neutral/deleted rules remove owned data,
@@ -80,6 +84,8 @@ in the audit is not present in this checkout; ARCHITECTURE is the active contrac
 Every item has a reproducible acceptance result, not just implementation files.
 The packaged JAR starts on a dedicated server, vanilla clients can join, the
 optional client correction works, configuration/world migration is exercised,
+both modded multiplayer and single-player culling are checked, server-only
+features remain functional with vanilla clients,
 and CI builds the tested single artifact. Current metadata and documentation
 match that result. Any remaining exception is recorded here before release;
 release approval is separate from committing documentation.
@@ -90,3 +96,8 @@ release approval is separate from committing documentation.
 old architecture/product contract with the finished-state target. Documentation
 only; implementation, gameplay verification, and external metadata edits remain
 open. The build property remains 1.2.0; v2 is a rebuild name, not a silent bump.
+
+Implementation is now approved: commit the installation-contract clarification,
+then dispatch one scaffold worker and a dependency-ordered worker per feature.
+Each handoff requires real verification, independent review, and a commit. This
+authorization does not mark any gameplay acceptance item complete.

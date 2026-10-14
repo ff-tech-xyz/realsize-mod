@@ -39,6 +39,12 @@ clients can join: scaling and movement do not require a client installation.
 Players can optionally install the same JAR on a Fabric client for the tiny-mob
 render-distance correction. No client classes load on a dedicated server.
 
+The culling correction works when both the multiplayer server and the client
+have RealSize, and in single-player with RealSize installed. A server-only
+installation still provides sizing, movement, configuration reload, and spawn
+clearance to vanilla clients; only the optional rendering correction is absent.
+In single-player, the integrated server owns sizing and the client owns culling.
+
 Without the client component, vanilla hitbox-based rendering limits still apply.
 With it, shrinking entities use unscaled dimensions for distance decisions,
 without shortening vanilla render distance for enlarged entities; normal
