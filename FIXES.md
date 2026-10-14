@@ -17,7 +17,8 @@ pure category/baby-aware sizing policy is implemented and unit-tested.
 Transient entity sizing, legacy attribute cleanup, and common server load/growth
 wiring are implemented and exercised against actual mobs and chunk storage.
 Transactional command/tag reload and changed-config chunk loading are implemented
-and tested. Movement, spawn clearance, and optional client culling remain
+and tested. Proportional movement and actual server collision courses are also
+implemented and tested. Spawn clearance and optional client culling remain
 deferred. The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
 
@@ -672,3 +673,100 @@ interactive integrated-server single-player, gameplay profiling, CI execution,
 and release validation remain open. No next-card implementation, running dev
 server/client, PR, merge, release, production mutation, or public deployment is
 part of this feature.
+
+## Proportional movement and collision evidence — 2026-10-14
+
+Scope: Kanban `t_7826bd1c`, branch `update/V.1.2.0`, base
+`e8065d0609a48ef8130c6b8e2a754ea12570bfa9`. Movement belongs to the existing
+`EntitySizing` owner and pure `SizingPolicy`; no new event, entity map, mixin,
+networking, or registry was added. Existing load/tick/reload paths use that owner.
+The documented proportional formula uses an effective ceiling that survives
+Minecraft's float conversion. Default `1.49` is unchanged; a valid double
+immediately below `1.5` must not round up to `1.5f`. Higher foreign/vanilla
+baselines remain untouched, including the camel's `1.5`.
+
+`realsize:step_height` is transient and uses `ADD_MULTIPLIED_TOTAL` to provide
+the exact effective difference from baseline even with foreign additive/base/
+total operations. Baseline excludes that ID and uses Minecraft's operation order
+and sanitization. An unchanged owned modifier is not removed/readded or dirtied.
+Shrinking never lowers baseline; neutral/deleted rules, disabled movement,
+non-Mob entities and aquatic mobs remove owned movement. Aquatic categories plus
+fish/guardians/nautilus families cover hostile/MISC exceptions. Sizing remains
+enabled for aquatic mobs.
+
+`javap -c -p` on the resolved 26.3 common JAR verified `maxUpStep()` converts
+the attribute to float (with a ridden-player minimum of `1.0`) and
+`AttributeInstance.getModifiers()` makes an immutable set copy. The owner uses
+that public snapshot only when its step modifier exists; no allocation-free or
+profiling claim is made. Bytecode evidence is in `evidence/movement-api.txt`,
+`movement-attribute-bytecode.txt`, and `movement-living-bytecode.txt` under the
+runtime root.
+
+Commands run from the repository; logs under `../../runtime/realsize-mod/evidence/`:
+
+- `./gradlew test --tests '*SizingPolicyTest' --console=plain`: initial
+  `movement-policy-red.log` **BUILD FAILED** at compilation because `stepHeight`
+  did not exist, not a behavioral assertion failure. After implementation,
+  `movement-policy-green.log` **BUILD SUCCESSFUL**, **7 policy tests** executed.
+- `./gradlew runGameTest --console=plain`: `movement-owner-red.log` **1 of 19
+  required tests failed**, `Enlarged golem must receive proportional movement`.
+  After integration, `movement-owner-green.log` **All 19 passed**. Twenty repeated
+  reconcile/load passes retain modifier identity/base; actual serialization
+  excludes owned movement/scale; neutral/deletion restore baseline.
+- Same GameTest command: `movement-aquatic-red.log` **1 of 21 failed** on
+  `Aquatic exclusion must remove movement: minecraft:cod`. After exclusion,
+  `movement-aquatic-green.log` **All 21 passed**. Thirteen actual aquatic types
+  retain sizing and lose even stale transient owned step data. Foreign-operation,
+  toggle and camel tests passed first run (coverage, not a claimed red cycle).
+  Foreign changes reconcile while own data exists; modifier objects/base survive.
+- Same GameTest command: `movement-collisions-first.log` **All 23 passed**, but
+  unregistered fixtures initially retained unscaled hitboxes. That initial pass
+  is not accepted enlarged-hitbox evidence. Fixtures now call vanilla
+  `refreshDimensions()` and assert width equals type width times scale/age before
+  movement. Corrected full builds below pass these actual enlarged-hitbox checks.
+- Policy command: `movement-float-red.log` **8 tests completed, 1 failed**.
+  `Math.nextDown(1.5)` became `1.5f`. The effective ceiling now uses the greatest
+  float below `1.5`, preserving higher baseline exceptions.
+- With that ceiling deliberately removed, the GameTest command failed **1 of
+  23** in `movement-fence-rounding-red.log`. A second run separating the movement
+  assertion, `movement-fence-escape-red.log`, recorded actual fence escape:
+  `Closest legal double cap must block actual fence escape; displacement=12.0`.
+  Restoring the ceiling fixes real collision, not just a numerical assertion.
+- `./gradlew clean build --console=plain`: corrected `movement-clean-build.log`
+  and final `movement-final-build.log` both **BUILD SUCCESSFUL**, **13 actionable
+  tasks: 11 executed, 2 up-to-date**. Final XML: **21 JUnit tests, 0 failures, 0
+  errors, 0 skipped** (8 policy tests); **23 required Minecraft tests passed**
+  (5 new movement tests, 17 prior RealSize tests, vanilla test). Actual Java
+  compilation/packaging ran; `NO-SOURCE` only for absent resources/access wideners.
+- `python3 scripts/server-smoke.py`: **PASS**, real dedicated server initialized,
+  reached `Done`, saved worlds, exited **0**, and loaded no RealSize/Minecraft
+  client classes. Logs: `server-smoke.log`, `server-classes.log`.
+- Python XML/JAR inspection confirms counts and no packaged GameTest classes/tags.
+  Artifact SHA-256:
+  `bf69a595be0705b1d926ccbbc23378c31581123cd0d16a9c6669d317fa291712`.
+  `git diff --check`: **0**. Accessible `/proc` cwd/fd scan: **0 runtime references**.
+
+Courses use loaded stone ground, real oak fences/connected cobblestone walls,
+enlarged golem/ravager hitboxes, and 48 actual Minecraft
+`Entity.move(SELF, Vec3(0.25,-0.08,0))` calls per traversal. Each type at `1.01`,
+`1.2`, `1.45` tests vanilla baseline, foreign `1.2` baseline/default cap, and
+foreign `1.2` baseline/closest legal double cap: **36 blocked traversals**.
+Twelve positive controls cross the same courses with higher foreign steps,
+proving the course is passable and those baselines are preserved. Controls travel
+`12.0` blocks. Enlarged ravager `1.45` stops at `2.9612499475479126` against fence
+and `2.8987499475479126` against wall. Near-limit owned step is `1.4999999f`.
+Actual measurements: `run/gameTest/sizing-evidence/movement-collisions.txt`.
+A stone plus three snow layers course has collision height `1.25`: enlarged
+golems/ravagers cross where vanilla versions cannot, while vanilla/enlarged camel
+both cross with its original `1.5` step.
+
+The card's local server collision gate is exercised, not left at numerical bounds.
+RS-03 remains open for broader player-driven gameplay, AI/pathfinding and
+connected-client checks; deterministic actual movement is not an interactive play
+session. Connected vanilla/modded clients, integrated single-player, wider
+combat/mob-proofing, profiling, uninstall/untouched legacy chunks, CI execution,
+spawn clearance, optional culling, and release gates remain unperformed.
+No next-card implementation, dev server/client, PR, merge, release, production
+mutation or public deployment is included. Independent exact-diff review, commit
+SHA and remote read-back SHA are recorded in the Kanban handoff after those
+operations occur; this evidence is committed with the implementation.

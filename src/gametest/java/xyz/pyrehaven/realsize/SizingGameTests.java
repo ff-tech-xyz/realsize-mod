@@ -297,7 +297,7 @@ public final class SizingGameTests implements ModInitializer {
             helper.assertTrue(reloaded.getAttribute(Attributes.SCALE).getPermanentModifiers().equals(java.util.Set.of(foreign)),
                     "Load must remove legacy scale and preserve foreign data");
             helper.assertTrue(reloaded.getAttribute(Attributes.STEP_HEIGHT).getModifiers().isEmpty(),
-                    "Load must remove old movement without implementing new movement");
+                    "Shrinking baby must remove old movement without granting a step boost");
             level.save(null, true, false);
             var saved = readChunkEntity(helper, chunk, chicken.getUUID());
             var packed = savedAttributes(helper, saved);
@@ -442,7 +442,7 @@ public final class SizingGameTests implements ModInitializer {
                 "Remove persistent realsize scale, preserve foreign scale");
         helper.assertTrue(health.getModifiers().equals(java.util.Set.of(transientOther, similarNamespace)),
                 "Cleanup must include all attributes but only exact namespace permanent modifiers");
-        helper.assertTrue(step.getModifiers().isEmpty(), "Legacy step data must be removed without new movement");
+        helper.assertTrue(step.getModifiers().isEmpty(), "Shrinking bee must remove legacy step data without a boost");
         helper.assertTrue(scale.getBaseValue() == scaleBase && health.getBaseValue() == healthBase
                 && step.getBaseValue() == stepBase, "Base attributes must remain unchanged");
         helper.assertTrue(Math.abs(bee.getScale() - 0.3) < 0.00001, "Foreign multiplier must coexist");
@@ -524,6 +524,218 @@ public final class SizingGameTests implements ModInitializer {
                 && bee.getAttribute(Attributes.SCALE).getModifiers().size() == 1,
                 "A replacement snapshot must update the same stable ID, not stack");
         helper.succeed();
+    }
+
+    @GameTest
+    public void proportionalMovementIsTransientIdempotentAndRemovedWithRule(GameTestHelper helper) {
+        var golem = EntityTypes.IRON_GOLEM.create(helper.getLevel(), EntitySpawnReason.COMMAND);
+        var step = golem.getAttribute(Attributes.STEP_HEIGHT);
+        double baseline = step.getValue();
+        double base = step.getBaseValue();
+        var owner = owner(helper, Map.of("minecraft:iron_golem", 1.45));
+        owner.onLoad(golem);
+        helper.assertTrue(Math.abs(step.getValue() - Math.min(baseline * golem.getScale(), 1.49)) < 0.00001,
+                "Enlarged golem must receive proportional movement");
+        var id = Identifier.parse("realsize:step_height");
+        var owned = step.getModifier(id);
+        helper.assertTrue(owned != null && step.getPermanentModifiers().isEmpty(), "Step boost must be transient");
+        for (int i = 0; i < 20; i++) {
+            owner.reconcile(golem);
+            owner.onLoad(golem);
+        }
+        helper.assertTrue(step.getModifier(id) == owned && step.getBaseValue() == base,
+                "Repeated reconciliation must exclude own boost and preserve modifier identity/base");
+        var output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, helper.getLevel().registryAccess());
+        helper.assertTrue(golem.save(output), "Movement fixture must serialize");
+        helper.assertTrue(savedAttributes(helper, output.buildResult()).stream().flatMap(a -> a.modifiers().stream())
+                .noneMatch(m -> m.id().getNamespace().equals("realsize")), "No owned movement/scale may serialize");
+        owner(helper, Map.of("minecraft:iron_golem", 1.0)).reconcile(golem);
+        helper.assertTrue(step.getModifier(id) == null && step.getValue() == baseline, "Neutral must remove movement");
+        owner.reconcile(golem);
+        owner(helper, Map.of()).reconcile(golem);
+        helper.assertTrue(step.getModifier(id) == null && step.getValue() == baseline, "Deletion must remove movement");
+        helper.succeed();
+    }
+
+    @GameTest
+    public void aquaticMovementIsExcludedEvenForHostileAndMiscCategories(GameTestHelper helper) {
+        for (var type : List.of(EntityTypes.COD, EntityTypes.SALMON, EntityTypes.PUFFERFISH,
+                EntityTypes.TROPICAL_FISH, EntityTypes.SQUID, EntityTypes.GLOW_SQUID, EntityTypes.DOLPHIN,
+                EntityTypes.AXOLOTL, EntityTypes.TADPOLE, EntityTypes.GUARDIAN, EntityTypes.ELDER_GUARDIAN,
+                EntityTypes.NAUTILUS, EntityTypes.ZOMBIE_NAUTILUS)) {
+            var mob = (net.minecraft.world.entity.Mob) type.create(helper.getLevel(), EntitySpawnReason.COMMAND);
+            var step = mob.getAttribute(Attributes.STEP_HEIGHT);
+            double baseline = step.getValue();
+            String id = helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE).getKey(type).toString();
+            var owner = owner(helper, Map.of(id, 1.45));
+            // Remove stale transient data too, not just legacy permanent modifiers.
+            step.addTransientModifier(modifier(Identifier.parse("realsize:step_height"), 0.2));
+            owner.reconcile(mob);
+            helper.assertTrue(step.getModifier(Identifier.parse("realsize:step_height")) == null
+                    && step.getValue() == baseline, "Aquatic exclusion must remove movement: " + id);
+            helper.assertTrue(mob.getScale() > 1.0f, "Aquatic exclusion must not disable sizing: " + id);
+        }
+        helper.succeed();
+    }
+
+    @GameTest
+    public void foreignStepOperationsCamelBaselineAndToggleArePreserved(GameTestHelper helper) {
+        var golem = EntityTypes.IRON_GOLEM.create(helper.getLevel(), EntitySpawnReason.COMMAND);
+        var step = golem.getAttribute(Attributes.STEP_HEIGHT);
+        var owner = owner(helper, Map.of("minecraft:iron_golem", 1.45));
+        var add = new AttributeModifier(Identifier.parse("othermod:add"), 0.1, AttributeModifier.Operation.ADD_VALUE);
+        var base = new AttributeModifier(Identifier.parse("othermod:base"), 0.2, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+        var total = modifier(Identifier.parse("othermod:total"), 0.1);
+        step.setBaseValue(0.4);
+        step.addPermanentModifier(add);
+        step.addTransientModifier(base);
+        step.addPermanentModifier(total);
+        double baseline = step.getValue();
+        double expected = Math.min(baseline * 1.45f, 1.49);
+        owner.reconcile(golem);
+        for (int i = 0; i < 20; i++) {
+            owner.reconcile(golem);
+            helper.assertTrue(Math.abs(step.getValue() - expected) < 0.00001,
+                    "All foreign operations must compose with exact effective step boost");
+        }
+        step.setBaseValue(2.0);
+        double highBaseline = (2.0 + 0.1) * 1.2 * 1.1;
+        owner.reconcile(golem);
+        helper.assertTrue(Math.abs(step.getValue() - highBaseline) < 0.00001
+                && step.getModifier(Identifier.parse("realsize:step_height")) == null,
+                "Foreign baseline above cap must never be lowered");
+        step.setBaseValue(0.4);
+        owner.reconcile(golem);
+        step.removeModifier(total);
+        owner.reconcile(golem);
+        helper.assertTrue(Math.abs(step.getValue() - 0.6 * 1.45f) < 0.00001,
+                "Foreign changes while own modifier exists must recompute baseline without feedback");
+        var disabled = new RealSizeConfig(2, 0.22, 0.6, 1.45, false, 1.49, true,
+                Map.of("minecraft:iron_golem", 1.45));
+        new EntitySizing(ResolvedSettings.resolve(disabled,
+                helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE), message -> {}), message -> {})
+                .reconcile(golem);
+        helper.assertTrue(step.getModifiers().equals(java.util.Set.of(add, base)) && step.getBaseValue() == 0.4,
+                "Toggle off removes only owned movement, leaves foreign objects/base intact");
+        var camel = EntityTypes.CAMEL.create(helper.getLevel(), EntitySpawnReason.COMMAND);
+        var camelStep = camel.getAttribute(Attributes.STEP_HEIGHT);
+        double camelBaseline = camelStep.getValue();
+        helper.assertTrue(camelBaseline == 1.5, "Actual camel vanilla baseline must be observed as 1.5");
+        owner(helper, Map.of("minecraft:camel", 1.45)).reconcile(camel);
+        helper.assertTrue(camel.maxUpStep() == 1.5f && camelStep.getModifiers().isEmpty(),
+                "Camel's existing 1.5 step must remain vanilla, not lower to RealSize cap");
+        helper.succeed();
+    }
+
+    @GameTest
+    public void enlargedGolemsAndRavagersCannotStepAcrossRealFencesOrWalls(GameTestHelper helper) {
+        var evidence = new StringBuilder();
+        for (var type : List.of(EntityTypes.IRON_GOLEM, EntityTypes.RAVAGER)) {
+            String id = helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE).getKey(type).toString();
+            for (var barrier : List.of(net.minecraft.world.level.block.Blocks.OAK_FENCE,
+                    net.minecraft.world.level.block.Blocks.COBBLESTONE_WALL)) {
+                for (double scale : new double[]{1.01, 1.2, 1.45}) {
+                    var mob = (net.minecraft.world.entity.Mob) type.create(helper.getLevel(), EntitySpawnReason.COMMAND);
+                    owner(helper, Map.of(id, scale)).onLoad(mob);
+                    double displacement = collideWithBarrier(helper, mob, barrier, false);
+                    helper.assertTrue(displacement < 4.0 && mob.horizontalCollision,
+                            "Enlarged " + id + " must collide with real " + barrier + " at scale " + scale);
+                    evidence.append(id).append(' ').append(barrier).append(" scale=").append(scale)
+                            .append(" step=").append(mob.maxUpStep()).append(" displacement=").append(displacement).append('\n');
+                    mob.getAttribute(Attributes.STEP_HEIGHT).addTransientModifier(new AttributeModifier(
+                            Identifier.parse("othermod:baseline"), 0.2, AttributeModifier.Operation.ADD_VALUE));
+                    owner(helper, Map.of(id, scale)).reconcile(mob);
+                    double capped = collideWithBarrier(helper, mob, barrier, false);
+                    helper.assertTrue(capped < 4.0 && mob.maxUpStep() < 1.5f,
+                            "Default cap must block real barrier with foreign baseline below fence height");
+                    var nearFence = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, Math.nextDown(1.5), true, Map.of(id, scale));
+                    new EntitySizing(ResolvedSettings.resolve(nearFence,
+                            helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE), message -> {}), message -> {})
+                            .reconcile(mob);
+                    double nearLimit = collideWithBarrier(helper, mob, barrier, false);
+                    helper.assertTrue(nearLimit < 4.0,
+                            "Closest legal double cap must block actual fence escape; displacement=" + nearLimit);
+                    helper.assertTrue(mob.maxUpStep() < 1.5f, "Owned step cap must survive float conversion");
+                    evidence.append("foreign baseline 1.2 default-cap displacement=").append(capped)
+                            .append(" near-1.5 step=").append(mob.maxUpStep()).append(" displacement=").append(nearLimit).append('\n');
+                    // Positive control: same hitbox/course crosses when another mod grants 2-block step.
+                    mob.getAttribute(Attributes.STEP_HEIGHT).addTransientModifier(new AttributeModifier(
+                            Identifier.parse("othermod:fence_control"), 2.0, AttributeModifier.Operation.ADD_VALUE));
+                    owner(helper, Map.of(id, scale)).reconcile(mob);
+                    double control = collideWithBarrier(helper, mob, barrier, false);
+                    helper.assertTrue(control > 8.0, "Course must allow crossing when foreign baseline already permits it");
+                    evidence.append("foreign control displacement=").append(control).append('\n');
+                }
+            }
+        }
+        writeMovementEvidence(evidence.toString());
+        helper.succeed();
+    }
+
+    @GameTest
+    public void proportionalStepActuallyClimbsHigherTerrainAndPreservesCamelMovement(GameTestHelper helper) {
+        for (var type : List.of(EntityTypes.IRON_GOLEM, EntityTypes.RAVAGER, EntityTypes.CAMEL)) {
+            String id = helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE).getKey(type).toString();
+            var mob = (net.minecraft.world.entity.Mob) type.create(helper.getLevel(), EntitySpawnReason.COMMAND);
+            double baseline = mob.maxUpStep();
+            double vanilla = collideWithBarrier(helper, mob, net.minecraft.world.level.block.Blocks.STONE, true);
+            owner(helper, Map.of(id, 1.45)).onLoad(mob);
+            double enlarged = collideWithBarrier(helper, mob, net.minecraft.world.level.block.Blocks.STONE, true);
+            helper.assertTrue(enlarged > 8.0, "Actual enlarged mob must climb 1.25-block terrain: " + id);
+            if (baseline < 1.25) {
+                helper.assertTrue(vanilla < 4.0, "Vanilla same mob must fail the higher step: " + id);
+            } else {
+                helper.assertTrue(vanilla > 8.0 && mob.maxUpStep() == baseline,
+                        "Camel must retain its actual vanilla higher-step behavior");
+            }
+        }
+        helper.succeed();
+    }
+
+    private static double collideWithBarrier(GameTestHelper helper, net.minecraft.world.entity.Mob mob,
+            net.minecraft.world.level.block.Block barrier, boolean quarterTop) {
+        // A loaded, level course outside the tiny empty template. Entities remain unregistered
+        // so the global sizing tick/other tests cannot replace this fixture's local owner.
+        var origin = helper.absolutePos(new BlockPos(256, 5, 256));
+        var level = helper.getLevel();
+        for (int x = 0; x < 18; x++) {
+            for (int z = 0; z < 10; z++) {
+                level.setBlockAndUpdate(origin.offset(x, -1, z), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                for (int y = 0; y < 7; y++) {
+                    level.setBlockAndUpdate(origin.offset(x, y, z), net.minecraft.world.level.block.Blocks.AIR.defaultBlockState());
+                }
+            }
+        }
+        for (int z = 0; z < 10; z++) {
+            level.setBlockAndUpdate(origin.offset(8, 0, z), barrier.defaultBlockState());
+            if (quarterTop) {
+                level.setBlockAndUpdate(origin.offset(8, 1, z), net.minecraft.world.level.block.Blocks.SNOW.defaultBlockState()
+                        .setValue(net.minecraft.world.level.block.SnowLayerBlock.LAYERS, 3));
+            }
+        }
+        // Unregistered fixtures don't receive vanilla's tick-driven dimension refresh.
+        mob.refreshDimensions();
+        helper.assertTrue(Math.abs(mob.getBoundingBox().getXsize()
+                - mob.getType().getDimensions().width() * mob.getScale() * mob.getAgeScale()) < 0.00001,
+                "Collision course must use actual scaled hitbox, not stale unscaled dimensions");
+        double startX = origin.getX() + 4.0;
+        mob.snapTo(startX, origin.getY(), origin.getZ() + 5.0);
+        mob.setNoAi(true);
+        mob.setOnGround(true);
+        for (int i = 0; i < 48; i++) {
+            mob.move(net.minecraft.world.entity.MoverType.SELF, new net.minecraft.world.phys.Vec3(0.25, -0.08, 0.0));
+        }
+        return mob.getX() - startX;
+    }
+
+    private static void writeMovementEvidence(String evidence) {
+        try {
+            var directory = FabricLoader.getInstance().getGameDir().resolve("sizing-evidence");
+            Files.createDirectories(directory);
+            Files.writeString(directory.resolve("movement-collisions.txt"), evidence);
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
     }
 
     private static EntitySizing owner(GameTestHelper helper, Map<String, Double> rules) {

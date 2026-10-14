@@ -167,6 +167,17 @@ or flat `+0.5` behavior remains; aquatic mobs are excluded. Existing baseline
 values above the cap are preserved, not reduced. Tests must verify actual
 fence/wall collision, not rely on the number alone.
 
+The cap also remains below `1.5` after Minecraft's float conversion: a configured
+double closer to `1.5` than a float can represent uses `Math.nextDown(1.5f)` as
+the effective owned ceiling. A total attribute multiplier applies only the
+effective difference from the foreign-inclusive baseline; an additive amount
+would itself be multiplied by foreign modifiers. The owner computes baseline
+with Minecraft's operation order/sanitization, excluding its stable step ID,
+without dirtying an unchanged live modifier. Aquatic exclusions include water
+categories and aquatic families whose categories are MONSTER/MISC (guardians,
+nautiluses, and fish including tadpoles). A higher foreign/vanilla baseline is
+still preserved, including a camel's vanilla `1.5` step.
+
 Natural spawn clearance uses scaled final dimensions before placement succeeds.
 The concrete 26.3 placement seam must be proved in an implementation spike.
 If Fabric cannot provide a verified hook without a server mixin, revise the

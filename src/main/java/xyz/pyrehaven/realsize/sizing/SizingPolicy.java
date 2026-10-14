@@ -27,6 +27,13 @@ public record SizingPolicy(double floor, double hostileFloor, double cap) {
         return multiplier;
     }
 
+    public double stepHeight(double baseline, double finalScale, double maxStepHeight) {
+        // Minecraft consumes step height as a float. A double just below 1.5 can
+        // round up to 1.5f, so the owned ceiling must also survive that conversion.
+        double ceiling = Math.min(maxStepHeight, Math.nextDown(1.5f));
+        return Math.max(baseline, Math.min(baseline * Math.max(1.0, finalScale), ceiling));
+    }
+
     private static void positive(String name, double value) {
         if (!Double.isFinite(value) || value <= 0) {
             throw new IllegalArgumentException(name + ": must be positive and finite");

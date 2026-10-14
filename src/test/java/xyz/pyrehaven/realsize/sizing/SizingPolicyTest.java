@@ -8,6 +8,23 @@ class SizingPolicyTest {
     private final SizingPolicy policy = new SizingPolicy(0.22, 0.6, 1.45);
 
     @Test
+    void proportionalStepNeverLowersBaselineAndStaysBelowFenceHeight() {
+        assertEquals(0.72, policy.stepHeight(0.6, 1.2, 1.49), 1e-12);
+        assertEquals(1.49, policy.stepHeight(1.0, 1.8, 1.49), 1e-12);
+        assertEquals(2.0, policy.stepHeight(2.0, 1.45, 1.49));
+        assertEquals(0.6, policy.stepHeight(0.6, 0.25, 1.49));
+        assertEquals(0.0, policy.stepHeight(0.0, 1.45, 1.49));
+        assertEquals(1.49, policy.stepHeight(1.0, Double.MAX_VALUE, 1.49));
+    }
+
+    @Test
+    void stepCapCannotRoundUpToFenceHeightInMinecraftFloatConversion() {
+        assertTrue((float) policy.stepHeight(1.0, 1.8, Math.nextDown(1.5)) < 1.5f);
+        assertEquals(1.5, policy.stepHeight(1.5, 1.8, Math.nextDown(1.5)),
+                "Existing higher baseline remains exempt from the owned cap");
+    }
+
+    @Test
     void exactBoundsAndAdjacentValuesUseTheConfiguredCategory() {
         for (double babyFactor : new double[]{1.0, 0.5}) {
             for (boolean hostile : new boolean[]{false, true}) {

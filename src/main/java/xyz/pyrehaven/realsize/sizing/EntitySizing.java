@@ -4,14 +4,19 @@ import java.util.function.Consumer;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.animal.nautilus.AbstractNautilus;
+import net.minecraft.world.entity.monster.Guardian;
 import xyz.pyrehaven.realsize.config.ResolvedSettings;
 import xyz.pyrehaven.realsize.config.RealSizeConfig;
 
 public final class EntitySizing {
     private static final Identifier SCALE_ID = Identifier.fromNamespaceAndPath("realsize", "scale");
+    private static final Identifier STEP_ID = Identifier.fromNamespaceAndPath("realsize", "step_height");
     private final ResolvedSettings settings;
     private final SizingPolicy policy;
     private final Consumer<String> diagnostics;
@@ -70,5 +75,72 @@ public final class EntitySizing {
                 }
             }
         }
+        reconcileMovement(living);
+    }
+
+    private void reconcileMovement(LivingEntity living) {
+        var step = living.getAttribute(Attributes.STEP_HEIGHT);
+        if (step == null) {
+            return;
+        }
+        Double rule = settings.scale(living.getType());
+        if (!(living instanceof Mob) || aquatic(living) || rule == null || rule == 1.0
+                || !settings.config().proportionalStepHeight()) {
+            step.removeModifier(STEP_ID);
+            return;
+        }
+        double baseline = stepWithoutOwnedModifier(step);
+        double desired = policy.stepHeight(baseline, living.getScale() * living.getAgeScale(),
+                settings.config().maxStepHeight());
+        if (desired == baseline) {
+            step.removeModifier(STEP_ID);
+            return;
+        }
+        // A total multiplier adds exactly the desired effective difference even with
+        // foreign ADD_MULTIPLIED_BASE/TOTAL modifiers; a flat ADD_VALUE would not.
+        double amount = desired / baseline - 1.0;
+        var current = step.getModifier(STEP_ID);
+        if (current == null || current.amount() != amount
+                || current.operation() != AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL) {
+            step.removeModifier(STEP_ID);
+            step.addTransientModifier(new AttributeModifier(STEP_ID, amount,
+                    AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+        }
+    }
+
+    private static boolean aquatic(LivingEntity living) {
+        // Guardians and zombie nautiluses are MONSTER, tadpoles are MISC.
+        return switch (living.getType().getCategory()) {
+            case AXOLOTLS, UNDERGROUND_WATER_CREATURE, WATER_CREATURE, WATER_AMBIENT -> true;
+            default -> living instanceof net.minecraft.world.entity.animal.fish.WaterAnimal
+                    || living instanceof Guardian || living instanceof AbstractNautilus;
+        };
+    }
+
+    private static double stepWithoutOwnedModifier(AttributeInstance step) {
+        if (!step.hasModifier(STEP_ID)) {
+            return step.getValue();
+        }
+        // Use Minecraft's operation order and sanitization, without removing/readding
+        // the live modifier (which would dirty/sync it on every unchanged tick).
+        var modifiers = step.getModifiers();
+        double base = step.getBaseValue();
+        for (var modifier : modifiers) {
+            if (!modifier.id().equals(STEP_ID) && modifier.operation() == AttributeModifier.Operation.ADD_VALUE) {
+                base += modifier.amount();
+            }
+        }
+        double value = base;
+        for (var modifier : modifiers) {
+            if (!modifier.id().equals(STEP_ID) && modifier.operation() == AttributeModifier.Operation.ADD_MULTIPLIED_BASE) {
+                value += base * modifier.amount();
+            }
+        }
+        for (var modifier : modifiers) {
+            if (!modifier.id().equals(STEP_ID) && modifier.operation() == AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL) {
+                value *= 1.0 + modifier.amount();
+            }
+        }
+        return Attributes.STEP_HEIGHT.value().sanitizeValue(value);
     }
 }
