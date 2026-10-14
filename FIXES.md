@@ -13,7 +13,8 @@ GameTest. It uses one 26.3 project, Java 25, non-remapping Loom, and no identity
 mapping JAR. Configuration parsing, immutable snapshots, first-run defaults, and
 legacy file migration are implemented and tested as a standalone boundary.
 Registry/tag resolution is also implemented and tested against the 26.3 server;
-entrypoint/lifecycle wiring remains deferred. No gameplay features
+pure category/baby-aware sizing policy is implemented and unit-tested.
+Entrypoint/lifecycle wiring remains deferred. No gameplay features
 are implemented. The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
 
@@ -395,3 +396,69 @@ remain unperformed. No running dev server/client, production reload, sizing
 adapter, server mixin, networking, new registry, next-card implementation, PR,
 merge, release, production write, or external Modrinth deployment is part of this
 feature.
+
+## Category and baby sizing policy evidence — 2026-10-14
+
+Scope: Kanban `t_0424bb98`, branch `update/V.1.2.0`, base
+`e80c1682d1a2369f5e812f63eac938849bce2d38`. `SizingPolicy` is a pure immutable
+calculation with numeric bounds and no Minecraft, Fabric, entity, or file imports.
+The adapter supplies validated configured bounds (defaults `0.22`, `0.6`, `1.45`),
+the resolved requested scale or `null`, hostile classification, and the vanilla
+age factor excluding owned/foreign attributes. It returns an owned multiplier,
+not an attribute amount. For active non-neutral rules:
+`clamp(requestedScale * babyFactor, categoryFloor, cap) / babyFactor`.
+Neutral `1.0` and absent rules return `1.0`, meaning remove the owned modifier;
+they preserve vanilla baby size even below a category floor. Entity mutation,
+category/age API integration, foreign-mod diagnostics, and growth callbacks
+remain the next lifecycle feature, not a claim made by numerical tests.
+
+Commands run from the repository (logs under `../../runtime/realsize-mod/evidence/`):
+
+- `./gradlew test --tests '*SizingPolicyTest' --console=plain`, first tracer:
+  **BUILD FAILED** at compilation because the policy did not yet exist. After
+  the neutral-only implementation, **BUILD SUCCESSFUL**, one actual test.
+  Logs: `sizing-first-red.log`, `sizing-neutral-green.log`. An earlier command
+  launched without an explicit working directory failed before Gradle or tee
+  ran; it is not test evidence. All subsequent commands set the repository cwd.
+- Same command, active adults: **2 tests completed, 1 failed** before category
+  clamping; **BUILD SUCCESSFUL** afterward. Logs: `sizing-adult-red.log`,
+  `sizing-adult-green.log`.
+- Same command, active babies: **3 tests completed, 1 failed** when clamping the
+  requested multiplier before the baby factor; **BUILD SUCCESSFUL** after
+  bounding the final adult-relative size. Logs: `sizing-baby-red.log`,
+  `sizing-baby-green.log`. Cases cover ordinary/hostile baby floors, an active
+  enlargement within the final cap, and enlargement reaching the final cap.
+- Same command, validation: **6 tests completed, 1 failed** before positive,
+  finite input/bound validation. Log: `sizing-validation-red.log`. Additional
+  tests for exact/adjacent category boundaries, custom/equal bounds, growth
+  recalculation, and extreme requested scales passed on first execution; these
+  are coverage, not claimed red cycles. Unrepresentable owned multipliers fail
+  explicitly rather than returning infinity.
+- `./gradlew clean build --console=plain`: **BUILD SUCCESSFUL**, 13 actionable
+  tasks (11 executed, 2 up-to-date), real source/test compilation and packaging.
+  XML reports **19 JUnit tests, 0 failures, 0 errors, 0 skipped**, including
+  **6 new sizing tests**. The actual Minecraft server reports **All 10 required
+  tests passed**, all existing scaffold/config/registry tests plus the vanilla
+  test; no new entity-sizing GameTest is claimed. Log: `sizing-clean-build.log`.
+  The existing absent client-resource warning remains; Java/JUnit/GameTest
+  execution is not `NO-SOURCE`.
+- `python3 scripts/server-smoke.py`: **PASS**, dedicated server initialized,
+  reached `Done`, saved worlds, exited **0**, and loaded no RealSize or Minecraft
+  client classes. Logs: `server-smoke.log`, `server-classes.log`. Entrypoints
+  remain scaffold-only, so this is isolation/startup evidence, not active sizing.
+- Python XML/JAR inspection verified the test counts and packaged
+  `xyz/pyrehaven/realsize/sizing/SizingPolicy.class`. JAR SHA-256:
+  `4fa6a0d35d258bb0067e370e41e556a6551f7c6f5ffd370e43780f01ae393f4b`.
+  `git diff --check`: exit **0**. Accessible `/proc` cwd/fd scan found **no
+  runtime references** after shutdown.
+
+Report: `../../runtime/realsize-mod/build/test-results/test/TEST-xyz.pyrehaven.realsize.sizing.SizingPolicyTest.xml`.
+Independent exact-diff review, commit SHA, and read-back remote SHA are recorded
+in this card's Kanban handoff after they occur; this evidence ships in the commit.
+RS-06/RS-07 remain open for actual mobs, combat/collision, growth/chunk lifecycle,
+and foreign attributes. Active sizing, legacy saved-attribute cleanup, reload,
+movement, spawn clearance, optional culling, gameplay profiling, connected clients,
+single-player, world migration/uninstall, CI, and release gates remain unperformed.
+No movement formula or Minecraft attributes, next-card implementation, running
+server/client, server mixin, networking, new registry, PR, merge, release,
+production write, or external deployment is part of this feature.
