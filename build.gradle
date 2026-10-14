@@ -11,6 +11,41 @@ base {
 
 layout.buildDirectory = file('../../runtime/realsize-mod/build')
 
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        realsize {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+    runs {
+        server {
+            programArg 'nogui'
+        }
+    }
+}
+
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'realsize-test'
+        enableGameTests = true
+        enableClientGameTests = false
+        eula = true
+    }
+}
+
+// Apply after configureTests, which supplies its own checkout-local run directory.
+loom.runs.configureEach {
+    runDirectory.set(file("../../runtime/realsize-mod/run/${name}"))
+}
+
+loom.runs.gameTest {
+    property 'fabric-api.gametest.report-file',
+            file('../../runtime/realsize-mod/run/gameTest/gametest-results.xml').absolutePath
+}
+
 repositories {
     mavenCentral()
 }
@@ -19,6 +54,8 @@ dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     implementation "net.fabricmc:fabric-loader:${project.loader_version}"
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    testImplementation "net.fabricmc:fabric-loader-junit:${project.loader_version}"
+    testRuntimeOnly "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
 java {
@@ -29,7 +66,29 @@ tasks.withType(JavaCompile).configureEach {
     options.release = 25
 }
 
-// Groundwork only: no metadata or implementation exists to package yet.
+tasks.named('test') {
+    useJUnitPlatform()
+    dependsOn tasks.named('jar')
+    inputs.file(tasks.named('jar').flatMap { it.archiveFile })
+    systemProperty 'realsize.test.jar', tasks.named('jar').get().archiveFile.get().asFile.absolutePath
+    systemProperty 'realsize.test.project', projectDir.absolutePath
+}
+
+tasks.named('processResources') {
+    def metadata = [version: project.version, minecraft_version: project.minecraft_version,
+                    loader_version: project.loader_version, fabric_api_version: project.fabric_api_version]
+    inputs.properties metadata
+    filesMatching('fabric.mod.json') {
+        expand metadata
+    }
+    from('branding/icon.png') {
+        into 'assets/realsize'
+    }
+}
+
 tasks.named('jar') {
-    enabled = false
+    def licenseName = "LICENSE_${project.archives_base_name}"
+    from('LICENSE') {
+        rename { licenseName }
+    }
 }

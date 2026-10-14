@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "realsize-test",
+  "version": "1.0.0",
+  "name": "RealSize development tests",
+  "environment": "server",
+  "entrypoints": {
+    "fabric-gametest": ["xyz.pyrehaven.realsize.ScaffoldGameTests"]
+  },
+  "depends": {
+    "realsize": "*",
+    "fabric-gametest-api-v1": "*"
+  }
+}

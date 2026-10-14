@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "realsize",
+  "version": "${version}",
+  "name": "RealSize",
+  "description": "RealSize v2 rebuild scaffold. Gameplay features are not implemented yet.",
+  "authors": ["PyreHaven"],
+  "contact": {
+    "sources": "https://github.com/ff-tech-xyz/realsize-mod",
+    "issues": "https://github.com/ff-tech-xyz/realsize-mod/issues"
+  },
+  "license": "MIT",
+  "icon": "assets/realsize/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": ["xyz.pyrehaven.realsize.RealSizeMod"],
+    "client": ["xyz.pyrehaven.realsize.client.RealSizeClient"]
+  },
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": ">=${fabric_api_version}",
+    "minecraft": "${minecraft_version}",
+    "java": ">=25"
+  }
+}
