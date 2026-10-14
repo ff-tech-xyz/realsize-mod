@@ -11,8 +11,9 @@ Current checkout: executable scaffold with isolated main/client entrypoints,
 Fabric metadata, a packaged JAR, an artifact smoke test, and a real server
 GameTest. It uses one 26.3 project, Java 25, non-remapping Loom, and no identity
 mapping JAR. Configuration parsing, immutable snapshots, first-run defaults, and
-legacy file migration are implemented and tested as a standalone boundary;
-entrypoint/lifecycle wiring awaits registry resolution. No gameplay features
+legacy file migration are implemented and tested as a standalone boundary.
+Registry/tag resolution is also implemented and tested against the 26.3 server;
+entrypoint/lifecycle wiring remains deferred. No gameplay features
 are implemented. The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
 
@@ -285,3 +286,112 @@ single-player, world migration/uninstall, CI execution, and final release gates
 remain unperformed. No running dev server/client, server mixin, networking,
 registry implementation, next-card work, PR, merge, release, production write,
 or external Modrinth deployment is part of this feature.
+
+## Registry resolution evidence — 2026-10-14
+
+Scope: Kanban `t_b5b614a0`, branch `update/V.1.2.0`, base
+`bfec907ca4440b85f701b47d53fe4d7c2d94f157`. The first feature commit attempt was
+blocked by the architecture hook: newly added test paths must be declared in an
+earlier groundwork commit. Independently reviewed layout-only commit
+`7c60ab6439ee1a4a2e5d5284f85c8633020eb724` now declares those paths; no hook was
+bypassed. `ResolvedSettings` resolves a validated
+`RealSizeConfig` against the actual server's `Registry<EntityType<?>>`. It owns
+a defensively copied, immutable identity-keyed map of requested scales and the
+immutable config inputs. `scale(EntityType<?>)` returns the preboxed requested
+value, including explicit neutral `1.0`, or `null` for no eligible rule. It does
+not clamp, apply attributes, select category/baby limits, or activate global state.
+
+Exact IDs take precedence. Differing tag values fail only where two effective
+tag rules select the same eligible type without an exact override; equal tag
+values agree. Diagnostics name both selectors and the conflicting entity ID.
+Selector processing is sorted, not dependent on input-map iteration order.
+Unknown well-formed IDs/tags each emit a named warning and remain in the config
+and on disk unchanged. Known empty tags are not unknown. Players and nonliving
+types are excluded from both exact and tag selection before conflict checks;
+living non-Mob types such as armor stands remain eligible.
+
+Verified API seam: `javap` on the actual 26.3 common JAR shows
+`EntityType.getBaseClass()` unconditionally returns `Entity.class`, so that API
+cannot classify living types. Resolution uses `DefaultAttributes.hasSupplier`
+with an explicit player exclusion instead. A GameTest selects every registered
+type, creates actual entities, and checks that eligibility matches
+`LivingEntity` membership for every non-player type. This creates no production
+entities during resolution and adds no new registry, networking, or mixin.
+
+Commands run from the repository (logs under `../../runtime/realsize-mod/evidence/`):
+
+- `./gradlew runGameTest --console=plain`, initial exact-ID tracer:
+  **BUILD FAILED** at compilation because `ResolvedSettings` did not exist.
+  This is not counted as an assertion failure. After minimal implementation,
+  the first run passed only the old 3 tests: the new test class was missing from
+  the explicit development entrypoint list. That run is not resolution evidence.
+  Registering the class and rerunning produced **All 4 required tests passed**,
+  including the named exact-rule test. Logs: `resolution-first-red.log`,
+  `resolution-first-green.log`, `resolution-first-registered-green.log`.
+- Same command, tag precedence: **1 required test failed** out of 5, because the
+  selected wither-skeleton tag member returned no scale. After tag resolution,
+  **All 5 required tests passed**. Logs: `resolution-tags-red.log` and
+  `resolution-tags-green.log`.
+- Same command, conflicting tags: **1 required test failed** out of 6 with
+  `Conflicting tag rules must fail rather than choose a winner`. After explicit
+  conflict detection, **All 6 required tests passed**. Logs:
+  `resolution-conflicts-red.log` and `resolution-conflicts-green.log`.
+- Same command, exclusions: **1 required test failed** out of 7 with
+  `Tag must exclude players`. After eligibility filtering, **All 7 required
+  tests passed**, including the registry-wide actual-entity check. Logs:
+  `resolution-exclusions-red.log` and `resolution-exclusions-green.log`.
+- Same command, unknown selectors: **1 required test failed** out of 8 with
+  `Both unknown selectors must warn exactly once`. After named warnings,
+  **All 8 required tests passed**. The file test loads real JSON, resolves it,
+  compares exact original bytes afterward, and verifies no unknown-ID fallback
+  to the default pig type. Logs: `resolution-unknown-red.log` and
+  `resolution-unknown-green.log`.
+- Same command, additional snapshot/overlap coverage: **All 10 required tests
+  passed**. These additional coverage tests passed on first execution, not a
+  claimed red cycle. The snapshot test changes the actual server registry's tag
+  bindings using `prepareTagReload(...).apply()`, verifies the old snapshot stays
+  fixed while a fresh resolution observes the new binding, and restores all
+  original tag bindings in `finally`. It also checks mutable input-map isolation
+  and an empty replacement with no default merge. This is test-only rebinding,
+  not production reload wiring. Log: `resolution-snapshots.log`.
+- `./gradlew clean build --console=plain`: **BUILD SUCCESSFUL**, actual common,
+  client, GameTest, and JUnit compilation and JAR packaging. XML inspection:
+  **13 JUnit tests, 0 failures, 0 errors, 0 skipped** (the existing 12 config
+  tests and artifact test); **10 required Minecraft tests passed** (7 new
+  resolution tests, 2 existing RealSize tests, vanilla `minecraft:always_pass`).
+  Final coverage additionally checks known empty tags, ignored nonliving tag
+  overlaps, and that a failed candidate leaves a prior snapshot unchanged.
+  Log: `resolution-clean-build.log`. The existing absent-client-resource warning
+  remains; no Java/test task is `NO-SOURCE`.
+- `python3 scripts/server-smoke.py`: **PASS**, normal dedicated dev server
+  initialized RealSize, reached `Done`, saved worlds, exited **0**; class-load
+  trace has no RealSize or Minecraft client classes. Logs: `server-smoke.log`
+  and `server-classes.log`. Entrypoints remain scaffold-only; this is not active
+  startup config/resolver wiring.
+- `javap -classpath ../../runtime/realsize-mod/build/classes/java/main -c
+  xyz.pyrehaven.realsize.config.ResolvedSettings` confirms `scale` only reads the
+  map, invokes `Map.get`, casts the existing `Double`, and returns it. No ID
+  conversion, string construction, registry lookup, boxing, or allocation occurs
+  in this lookup method. No gameplay-path profiler measurement is claimed.
+- Python JAR inspection confirms the resolver is packaged and no GameTest class
+  or test-only tag data ships. JAR SHA-256:
+  `9778694020e0df22e20485478598d7cf03ca41165a156324d3068d10248ff915`.
+  `git diff --check`: exit **0**. Accessible `/proc` cwd/fd scan found **no runtime
+  references** after shutdown.
+
+Reports: `../../runtime/realsize-mod/build/test-results/test/TEST-*.xml` and
+`../../runtime/realsize-mod/run/gameTest/gametest-results.xml`. Development-only
+`only_bee`, `mixed`, and `empty` tags exercise real server datapack tag loading;
+they are declared in ARCHITECTURE and only registered in GameTest metadata.
+Independent exact-diff review, commit SHA, and read-back remote SHA belong in the
+Kanban handoff after those actions occur; this evidence is committed with the code.
+
+RS-04 remains open for active startup/lifecycle integration and transactional
+reload. RS-05 has a verified allocation-free lookup, but gameplay-path integration
+and profiling remain unperformed. Sizing policy, entity mutation/legacy world
+attribute cleanup, movement, spawn clearance, client culling, connected clients,
+single-player, world migration/uninstall, CI execution, and final release gates
+remain unperformed. No running dev server/client, production reload, sizing
+adapter, server mixin, networking, new registry, next-card implementation, PR,
+merge, release, production write, or external Modrinth deployment is part of this
+feature.
