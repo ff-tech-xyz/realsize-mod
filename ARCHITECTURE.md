@@ -34,6 +34,8 @@ realsize-mod/
 ├── gradlew.bat
 ├── branding/
 │   └── icon.png
+├── scripts/
+│   └── server-smoke.py
 ├── gradle/
 │   └── wrapper/
 │       ├── gradle-wrapper.jar
@@ -64,13 +66,17 @@ realsize-mod/
     │       └── mixin/EntityRenderDistanceMixin.java
     ├── test/
     │   └── java/xyz/pyrehaven/realsize/
+    │       ├── ScaffoldTest.java
     │       ├── config/ConfigFileTest.java
     │       ├── config/ResolvedSettingsTest.java
     │       └── sizing/SizingPolicyTest.java
     └── gametest/
-        └── java/xyz/pyrehaven/realsize/
-            ├── SizingGameTests.java
-            └── SpawnGameTests.java
+        ├── java/xyz/pyrehaven/realsize/
+        │   ├── ScaffoldGameTests.java
+        │   ├── SizingGameTests.java
+        │   └── SpawnGameTests.java
+        └── resources/
+            └── fabric.mod.json
 ```
 
 ## Owners
@@ -182,6 +188,13 @@ a real client. Fail closed for the required client injection. Register it only
 in client metadata/mixin configuration; a dedicated server loads none of it.
 
 ## Build and package
+
+Scaffold tests verify the installation contract before gameplay exists:
+`ScaffoldTest` inspects the real packaged artifact, `ScaffoldGameTests` exercises
+Loader discovery and a vanilla mob on the Minecraft test server, and
+`scripts/server-smoke.py` boots/stops the normal dedicated dev server and checks
+its JVM class-load trace for client isolation. GameTest metadata belongs to the
+separate development source set and never ships in the production JAR.
 
 One root project owns all sources, dev runtime, resources, and tests. Version
 pins live in `gradle.properties`, with checksum-pinned Gradle distribution.
