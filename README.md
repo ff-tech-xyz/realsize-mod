@@ -137,6 +137,13 @@ placement is accepted. Existing mobs, explicit summons, and config changes are
 not teleported or deleted to solve collisions; administrators must leave enough
 space for the configured sizes.
 
+Only narrow server spawn-placement mixins are permitted for that clearance
+check. They run before placement reports success, preserve candidate retries,
+and use the same sizing owner as load and reload. There are no server tracking
+mixins, custom networking, or client-required registries. This bounded exception
+replaces the rebuild's original zero-server-mixin requirement; implementation
+and verification status remain in FIXES.md.
+
 ## Building and testing
 
 One root Gradle project uses Mojang names, the non-remapping

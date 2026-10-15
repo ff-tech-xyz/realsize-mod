@@ -770,3 +770,94 @@ No next-card implementation, dev server/client, PR, merge, release, production
 mutation or public deployment is included. Independent exact-diff review, commit
 SHA and remote read-back SHA are recorded in the Kanban handoff after those
 operations occur; this evidence is committed with the implementation.
+
+## Natural placement seam blocker — 2026-10-14
+
+Scope: Kanban `t_ef0c50ef`, branch `update/V.1.2.0`, parent commit
+`4fe7390a46695276ed47fe696c01290ea77228f3`. **Blocked, not implemented.**
+No production `SpawnSizing`, server mixin, or second sizing model was added.
+At the time of this spike the zero-server-mixin contract remained unchanged
+pending Elijah's decision. The approval below supersedes that architecture gate.
+
+An executable, development-only spike registered Fabric's `ALLOW_LOAD`, called
+the existing `EntitySizing` owner with an iron-golem rule of `1.45`, refreshed
+the actual dimensions, and tested world collision before entity registration.
+It called real `SpawnUtil.trySpawnMob` using the villager path's
+`MOB_SUMMONED`, `LEGACY_IRON_GOLEM`, and final boolean `false`; horizontal and
+vertical search ranges were zero for a deterministic candidate. This is the
+natural village-golem placement path, not a claim that the reason is `NATURAL`
+or that all natural spawn mechanisms were exercised.
+
+- `./gradlew runGameTest --console=plain`: **BUILD FAILED**, exit **1**;
+  **24 Minecraft tests, 1 failure**, only the seam spike. Adequate space invoked
+  the transformed callback once, accepted a golem, returned a present Optional,
+  and registered that exact UUID/object. A three-block roof permits vanilla
+  dimensions but collides with the actual enlarged height
+  `3.9150002002716064`. There the callback ran once, returned false, and prevented
+  registration; nevertheless `trySpawnMob` returned a **present Optional**.
+  The final assertion failed: `Rejected scaled placement must return empty to
+  natural golem caller, not report success`. This is a real failing contract
+  check, not an accepted spawn-clearance implementation.
+- `javap -p -c` against the pinned 26.3 common JAR confirms `SpawnUtil` invokes
+  the void `addFreshEntityWithPassengers`, then plays the ambient sound and
+  unconditionally returns `Optional.of(mob)`. The villager checks `isEmpty()`
+  before its success continuation. A load veto therefore stops candidate retries
+  while reporting success. `ALLOW_LOAD` occurs at entity-manager insertion,
+  too late to repair that control flow.
+- Pinned object-builder API inspection shows `FabricEntityType.Builder.Mob`
+  offers `spawnPlacement` for entity-type construction. This golem path instead
+  calls instance `checkSpawnRules`/`checkSpawnObstruction`, not `SpawnPlacements`.
+  No suitable earlier public callback was found in the inspected pinned APIs.
+  This is not a claim about every future Fabric release.
+- Independent exact-spike review by Hermes subagent
+  `gpt-6.1-sol/openai-codex`, `deleg_36f04453/task-0`, returned **BLOCKED** and
+  independently confirmed the bytecode, runtime evidence, and object-builder
+  limitation. No READY receipt was recorded.
+- The throwaway source and temporary test-entrypoint wiring were removed after
+  preserving the reproducer. `./gradlew clean build --console=plain` then
+  reported **BUILD SUCCESSFUL**, 13 actionable tasks (11 executed, 2 up-to-date).
+  XML inspection: **21 JUnit tests, 0 failures/errors/skipped** and **23 Minecraft
+  tests, 0 failures/errors**. This verifies restored passing groundwork, not
+  spawn clearance. Accessible `/proc` cwd/fd inspection found **0 runtime process
+  references** after shutdown. `git diff --check` passed.
+
+Evidence under `../../runtime/realsize-mod`: `evidence/SpawnGameTests.java`,
+`evidence/spawn-seam-spike.log`, `evidence/spawn-seam-spike-results.xml`,
+`run/gameTest/sizing-evidence/spawn-seam-spike.txt`,
+`evidence/spawn-util-bytecode.txt`, `evidence/spawn-villager-bytecode.txt`,
+`evidence/spawn-natural-bytecode.txt`, `evidence/spawn-object-builder-bytecode.txt`,
+and `evidence/spawn-spike-restored-build.log`. Restored XML reports retain their
+normal paths. The reviewer transcript is
+`/home/p-h-r-e-d/phred2.0/home/cache/delegation/live/deleg_36f04453/task-0.log`.
+
+The decision requested at that point was to approve a narrowly scoped server spawn-placement
+adapter exception before insertion/success reporting, delegating mutation to
+`EntitySizing` and preserving failed-candidate retries; or retain zero server
+mixins and explicitly defer the spawn-clearance guarantee. A golem-only seam
+would not by itself complete all natural-spawn integration. RS-08 and the
+dependent feature chain remain open. No feature commit/push or release occurred;
+this blocker evidence was left as an uncommitted FIXES.md update. Existing-mob,
+explicit-summon and reload non-relocation checks for a future adapter, connected
+clients, single-player, profiling, uninstall, CI, and release gates remain
+unperformed. No server/client remains running and no next card was implemented.
+
+## Approved spawn-placement architecture — 2026-10-15
+
+Elijah approved the narrow exception with `yes keep building` in Discord
+message `1560310593595117589`, replying to the scoped approval question. README
+and ARCHITECTURE now permit only pre-success spawn-placement mixins, preserving
+failed-candidate retries and the single `EntitySizing` mutation owner. Server
+tracking mixins, general load vetoes, networking and client-required registries
+remain prohibited. SpawnUtil and NaturalSpawner adapters and their common
+required mixin configuration are declared before production source is added.
+Finalized candidate state must be sized before acceptance; finalization, if
+reordered within a placement loop, still runs once and preserves success/group
+semantics. Explicit summons and existing/reloaded entities are not relocated or
+deleted to resolve collisions.
+
+Groundwork only: no production spawn adapter has been added at this point.
+The failed 2026-10-14 spike and restored passing build above remain historical
+evidence, not acceptance of the new implementation. Local/connected gameplay,
+single-player, profiling, uninstall, CI and release gates remain open. The
+architecture groundwork is independently reviewed and committed before source
+implementation; its commit/review identifiers belong in the Kanban handoff.

@@ -10,8 +10,13 @@ The rebuild label is v2; `mod_version` remains `1.2.0` pending a separate decisi
 
 One Fabric project targets Minecraft 26.3 and Java 25. The same JAR provides
 server-owned mob sizing and an optional, isolated client rendering correction.
-Vanilla clients can join. The server has no RealSize tracking hooks or mixins,
-custom networking, or client-required registries. The client component does
+Vanilla clients can join. The server has no RealSize tracking hooks or tracking
+mixins, custom networking, or client-required registries. Its only permitted
+server mixins are narrow pre-success spawn-placement adapters, approved by
+Elijah in Discord message `1560310593595117589` on 2026-10-15. They preserve
+vanilla failed-candidate retries and delegate all sizing mutation to
+`EntitySizing`; they do not veto entity loads or replace server tracking.
+The client component does
 not invent entities outside vanilla server tracking.
 
 ## Source layout
@@ -52,12 +57,16 @@ realsize-mod/
     │   │   │   ├── RealSizeConfig.java
     │   │   │   ├── DefaultScales.java
     │   │   │   └── ResolvedSettings.java
+    │   │   ├── mixin/
+    │   │   │   ├── SpawnUtilMixin.java
+    │   │   │   └── NaturalSpawnerMixin.java
     │   │   └── sizing/
     │   │       ├── SizingPolicy.java
     │   │       ├── EntitySizing.java
     │   │       └── SpawnSizing.java
     │   └── resources/
     │       ├── fabric.mod.json
+    │       ├── realsize.spawn.mixins.json
     │       ├── realsize.client.mixins.json
     │       └── assets/realsize/icon.png
     ├── client/
@@ -103,6 +112,13 @@ realsize-mod/
   is verified against 26.3 before selecting its concrete callbacks.
 - `SpawnSizing` uses the same resolved policy and dimensions to reject enlarged
   natural placements that collide. It does not maintain a second sizing model.
+  The spawn mixins adapt only `SpawnUtil` and the ticking/chunk-generation
+  `NaturalSpawner` candidate loops before their success branches. Finalized age,
+  variant and foreign attributes must be reflected before clearance succeeds;
+  any necessary finalization reordering remains inside those placement adapters,
+  runs once per candidate, and retains vanilla retry/group-success semantics.
+  The composition root supplies its current `EntitySizing` owner to this check,
+  including after config/tag reload; there is no parallel active sizing state.
 - `RealSizeClient` owns client-local options and the client-only render adapter.
   No common initializer imports a client class.
 
@@ -179,10 +195,14 @@ nautiluses, and fish including tadpoles). A higher foreign/vanilla baseline is
 still preserved, including a camel's vanilla `1.5` step.
 
 Natural spawn clearance uses scaled final dimensions before placement succeeds.
-The concrete 26.3 placement seam must be proved in an implementation spike.
-If Fabric cannot provide a verified hook without a server mixin, revise the
-architecture for approval rather than quietly breaking the zero-server-mixin
-contract. Config changes and existing mobs do not trigger teleport/deletion.
+The 26.3 executable spike proved that Fabric `ALLOW_LOAD` is too late: it can
+reject registration while `SpawnUtil` reports success and stops retrying. The
+original zero-server-mixin requirement is superseded only by the approved
+placement exception above, not by general permission for server hooks. Required
+transformed tests cover collision rejection, adequate space, failed-candidate
+retries and natural placement. Explicit summons, config changes and existing
+mobs do not trigger collision-based teleport/deletion. The failed spike remains
+historical evidence in FIXES.md, not a passing implementation claim.
 
 ## Client rendering
 
@@ -219,7 +239,9 @@ module, or `compileOnly` project dependency. Java is 25.
 
 The finished metadata allows both environments (`environment: "*"`), declares
 separate main/client entrypoints, exact 26.3 compatibility, Java 25, required
-Fabric dependencies, and only client mixins. Contact metadata names the actual
+Fabric dependencies, the bounded spawn-placement mixins and isolated client
+mixins. Required spawn injections fail closed when their verified targets change.
+Contact metadata names the actual
 `ff-tech-xyz/realsize-mod` source and issue tracker. Reuse the retained icon and
 license. Modrinth metadata corrections require separately approved deployment.
 
