@@ -16,7 +16,10 @@
     "main": ["xyz.pyrehaven.realsize.RealSizeMod"],
     "client": ["xyz.pyrehaven.realsize.client.RealSizeClient"]
   },
-  "mixins": ["realsize.spawn.mixins.json"],
+  "mixins": [
+    "realsize.spawn.mixins.json",
+    {"config": "realsize.client.mixins.json", "environment": "client"}
+  ],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-api": ">=${fabric_api_version}",

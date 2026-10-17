@@ -19,15 +19,19 @@ wiring are implemented and exercised against actual mobs and chunk storage.
 Transactional command/tag reload and changed-config chunk loading are implemented
 and tested. Proportional movement and actual server collision courses are also
 implemented and tested. Finalized natural-spawn clearance is implemented,
-independently reviewed and committed; optional client culling remains deferred.
+independently reviewed and committed. Optional client culling is implemented
+and exercised below; its independent feature acceptance and commit are pending
+at the client candidate checkpoint, not inferred from the earlier spawn work.
 The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
 
 ## Open fixes
 
-- [ ] **RS-01 — Tiny-mob visibility.** Drop server tracking extensions; add the
+- [x] **RS-01 — Tiny-mob visibility.** Drop server tracking extensions; add the
   optional client unscaled-distance correction in the same JAR. Reproduce the
-  bee disappearance around 12 blocks before fixing it. Compare vanilla and
+  bee distance failure before fixing it. The audit's approximate 12-block visual
+  disappearance remains unverified; normalized real-client observations below
+  are not substituted for that measurement. Compare vanilla and
   modded clients, toggle off/on, verify server tracking unchanged and dedicated
   server client-class isolation. Treat audit distances as approximate until tested.
   Cover both multiplayer with RealSize installed on server and client and
@@ -74,7 +78,7 @@ in the audit is not present in this checkout; ARCHITECTURE is the active contrac
 - [ ] **RS-10 — Dead abstractions.** Do not reintroduce ignored type parameters,
   unused scale getters, constant fallback settings, or pass-through logic owners.
   Review implementation dependencies against ARCHITECTURE; one sizing owner.
-- [ ] **RS-11 — Mixin integration.** No server tracking mixins. Verify the sole
+- [x] **RS-11 — Mixin integration.** No server tracking mixins. Verify the sole
   client render adapter's target and injection count; prefer ModifyReturnValue.
   Test transformed code, not source-string assertions.
 - [ ] **RS-12 — Compatibility claims.** Declare only tested Minecraft 26.3;
@@ -1504,3 +1508,107 @@ handoff still belong to downstream cards. No release or player-facing deployment
 is approved or claimed here. The current JAR remains Minecraft 26.3 / Java 25 /
 artifact 1.2.0, SHA-256
 `5a80dfbffac6b1edd7988534582a9e01a4bac8210acc0201446e30335c426ee2`.
+
+## Optional client culling candidate — 2026-10-17
+
+Scope: `t_29eb3bd3`, optional client feature on `update/V.1.2.0`. Clean starting
+HEAD and remote were `0b9eff3a446c0ec7b6245e3082efcecb3dbfce40`. Architecture
+ownership/test inventory was independently reviewed READY by `gpt-6.1-sol`,
+`deleg_c9a21847/task-0`, exact documentation diff SHA-256
+`48786e6d59151b7ce85e11715e4345095dfc84d3092161b0b5f3fe53be3bad38`.
+It was committed before new sources as `043b329` (`Define local client rendering
+ownership and test inventory`); physical architecture hook passed.
+
+Pinned 26.3 source and `javap -p -s` establish public instance
+`Entity.shouldRenderAtSqrDistance(double)`, descriptor `(D)Z`. Its single return
+uses `(bbox.getSize() * (64 * viewScale))^2`, with vanilla's NaN-size fallback.
+`@ModifyReturnValue` preserves every successful original result and adds the
+unscaled bbox threshold only for actual living-entity SCALE in `(0, 1)`.
+Baby/intrinsic dimensions remain in the bbox. No entity-rule lookup, string
+conversion, config I/O, attribute mutation, tracking hook, custom packet or
+registry was added to rendering. The sole client injection requires/expects/
+allows exactly one match and is declared only in client metadata/config.
+`RealSizeClient` reads the existing validated local file on startup and
+`/realsize-client reload`; invalid reload retains its previous flag. Common
+initialization imports no client owner. Local reload does not replace the
+integrated server's sizing snapshot; no second sizing owner exists.
+
+Evidence is under `../../runtime/realsize-mod/evidence/client/`:
+
+- Before the production mixin, `./gradlew runClientGameTest --console=plain`
+  (`red.log`) exited 1 in a real graphical client/integrated world:
+  `Quarter-scale bee must retain unscaled render distance at 30 blocks`.
+  The same initial test then passed (`first-green.log`, exit 0). This is an
+  executed distance failure, not a compile failure or empty test.
+- Expanded `ClientRenderGameTests` is one Fabric client test entrypoint covering
+  integrated single-player and dedicated-server TCP. It waits for both SCALE
+  packets and actual bbox refresh, then checks a real server-sized/tracked bee.
+  Client rule deliberately says bee `1.0` while the server snapshot/synced bee
+  remain `0.25`. Four local off/on command reloads per mode affect only culling;
+  malformed local JSON returns 0 and retains the active option. Strict boundary/
+  view-scale cases cover `0.25`, `1`, `1.45`, `2`, baby chicken and nonliving boat.
+  The real renderer still rejects an always-hidden test frustum. A 256-block
+  teleport removes the bee from the client while it still exists server-side.
+- `./gradlew clean build --console=plain` (`clean-build.log`) exited 0:
+  **37 Minecraft tests and 21 JUnit tests, zero failures/errors/skipped**.
+  XML was parsed. Client gameplay runs separately; it is not counted among the
+  37 server tests. Normal `runClientGameTest` also passed (`final-connections.log`
+  before the final measurement-only logging addition).
+- `python3 ../../runtime/realsize-mod/evidence/client/artifact-client.py`
+  exited 0 after the final clean build. It excludes production main/client
+  source outputs from the launch classpath and loads the actual packaged JAR,
+  retaining only development GameTest outputs. JVM class-load provenance shows
+  `RealSizeClient` from `build/libs/realsize-1.2.0.jar`, not build/classes.
+  `artifact-client.log` has both connection PASS and both tracking PASS markers.
+  Exported transformed Entity (`artifact-transformed-Entity.class/.javap.txt`)
+  has exactly one call to the merged handler in `(D)Z`; debug count checks were
+  enabled. Client and servers shut down normally. This uses pinned development
+  game/dependencies with the actual JAR, not a separately installed distribution.
+- `python3 scripts/server-smoke.py` exited 0: dedicated startup/save/stop; common
+  sizing owner loaded; no Minecraft/RealSize client classes in the class trace.
+  `python3 ../../runtime/realsize-mod/evidence/spawn-resume/artifact-smoke.py`
+  also exited 0 with production source outputs excluded, no test mod, and no
+  client classes. Packaged metadata tests require the isolated client config and
+  exclude both server/client development tests from the production JAR.
+- `python3 ../../runtime/realsize-mod/evidence/client/vanilla-connection.py`
+  exited 0 on the final artifact. Mojang's original 26.3 client JAR launches via
+  `net.minecraft.client.main.Main`, with no Fabric Loader or RealSize on its
+  classpath, against the packaged RealSize server over loopback TCP. Client
+  SHA-1 `e877b6a07acd633fb3bb475002175cec036e7b87` matches the cached Mojang
+  download manifest. A disposable instrumentation observer checks at
+  `Minecraft.tick` returns only; it does not transform Entity, rendering,
+  tracking, networking or attributes. This is instrumented vanilla, not an
+  uninstrumented manual play session. It proves absent Loader/RealSize handlers,
+  synced bee `0.25`, golem `1.2`, proportional step `1.2000000476837158`, and
+  server config/reload updating that same bee to `0.4`. Vanilla's strict distance
+  threshold stays unchanged in both states. A 256-block teleport removes both
+  tracked entities. Client/server exit 0; server saves worlds. The unchanged
+  common suite additionally exercises server natural placement and lifecycle;
+  this connected probe is not an exhaustive manual spawn/migration playthrough.
+
+Normalized to `Entity.viewScale=1`, the synced quarter-scale bee's runtime
+vanilla bbox threshold is `8.533333460489908` blocks and corrected threshold is
+`34.13333384195963`. Vanilla-client observer measures the same `8.533333460489908`;
+after server reload to `0.4`, its original threshold is `13.653333981831869`.
+These are actual bbox/gate observations, not screen-space disappearance
+measurements. The audit's approximate **12-block bee disappearance remains
+unverified**, not reproduced or relabeled by these normalized numbers.
+
+Fixture failures were corrected, not waived: SCALE packets precede tick-driven
+bbox refresh, so the test awaits both. The Fabric test API's `getPort()` retains
+configured zero, causing refused TCP; the fixture now selects a loopback port
+before starting (`port-zero-failure.log` preserves that attempt). Direct artifact
+launch needs its own development EULA file, normally supplied by Gradle. The
+first vanilla probe hit the new default whitelist; its disposable loopback-only
+fixture now explicitly disables whitelist. No production authentication changed.
+Compile errors in client-command API naming, transformed source casting and
+checked test exceptions were corrected against actual pinned classes and are
+not counted as behavioral reds.
+
+Tested artifact remains Minecraft 26.3 / Java 25 / version 1.2.0, SHA-256
+`138e422d1d7a1eaa28e7bf20aa29cad51628a80644bbc7fc2e0a39e849ce2779`.
+Independent exact-feature review, commit/push/read-back and final process cleanup
+are pending at this candidate checkpoint. RS-01/RS-11 implementation/automated
+integration gates are exercised; wider visual/manual gameplay, combat, world/
+uninstall migration, profiling, CI and whole-branch review remain on downstream
+final validation. No release, PR, merge, production mutation or public deployment.

@@ -31,7 +31,7 @@ fabricApi {
         createSourceSet = true
         modId = 'realsize-test'
         enableGameTests = true
-        enableClientGameTests = false
+        enableClientGameTests = true
         eula = true
     }
 }
@@ -44,6 +44,11 @@ loom.runs.configureEach {
 loom.runs.gameTest {
     property 'fabric-api.gametest.report-file',
             file('../../runtime/realsize-mod/run/gameTest/gametest-results.xml').absolutePath
+}
+
+loom.runs.clientGameTest {
+    property 'mixin.debug.export', 'true'
+    property 'mixin.debug.countInjections', 'true'
 }
 
 repositories {

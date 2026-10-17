@@ -52,9 +52,23 @@ class ScaffoldTest {
                     assertEquals(69, bytes.readUnsignedShort(), "Entrypoint must target Java 25");
                 }
             }
-            assertEquals(1, mod.getAsJsonArray("mixins").size(), "Only approved common spawn adapters are implemented");
+            assertEquals(2, mod.getAsJsonArray("mixins").size(), "Common spawn and isolated client adapters");
             String config = mod.getAsJsonArray("mixins").get(0).getAsString();
-            assertEquals("realsize.spawn.mixins.json", config, "Unimplemented client culling must remain undeclared");
+            assertEquals("realsize.spawn.mixins.json", config);
+            var clientConfig = mod.getAsJsonArray("mixins").get(1).getAsJsonObject();
+            assertEquals("client", clientConfig.get("environment").getAsString());
+            assertEquals("realsize.client.mixins.json", clientConfig.get("config").getAsString());
+            try (var reader = new InputStreamReader(jar.getInputStream(jar.getEntry("realsize.client.mixins.json")),
+                    StandardCharsets.UTF_8)) {
+                var clientMixins = JsonParser.parseReader(reader).getAsJsonObject();
+                assertTrue(clientMixins.get("required").getAsBoolean());
+                assertFalse(clientMixins.has("mixins"), "No common client adapters");
+                assertEquals(1, clientMixins.getAsJsonObject("injectors").get("defaultRequire").getAsInt());
+                assertEquals(1, clientMixins.getAsJsonArray("client").size());
+                assertEquals("EntityRenderDistanceMixin", clientMixins.getAsJsonArray("client").get(0).getAsString());
+                assertNotNull(jar.getEntry(clientMixins.get("package").getAsString().replace('.', '/')
+                        + "/EntityRenderDistanceMixin.class"));
+            }
             JsonObject mixins;
             try (var reader = new InputStreamReader(jar.getInputStream(jar.getEntry(config)), StandardCharsets.UTF_8)) {
                 mixins = JsonParser.parseReader(reader).getAsJsonObject();
@@ -70,6 +84,8 @@ class ScaffoldTest {
             assertFalse(mod.getAsJsonObject("entrypoints").has("fabric-gametest"));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().contains("ScaffoldGameTests")),
                     "Development tests must not ship in the production JAR");
+            assertFalse(jar.stream().anyMatch(entry -> entry.getName().contains("ClientRenderGameTests")),
+                    "Client development tests must not ship either");
             assertArrayEquals(Files.readAllBytes(project.resolve("branding/icon.png")),
                     jar.getInputStream(jar.getEntry(mod.get("icon").getAsString())).readAllBytes());
             assertArrayEquals(Files.readAllBytes(project.resolve("LICENSE")),

@@ -3,8 +3,9 @@
   "id": "realsize-test",
   "version": "1.0.0",
   "name": "RealSize development tests",
-  "environment": "server",
+  "environment": "*",
   "entrypoints": {
+    "fabric-client-gametest": ["xyz.pyrehaven.realsize.ClientRenderGameTests"],
     "main": ["xyz.pyrehaven.realsize.SizingGameTests", "xyz.pyrehaven.realsize.SpawnGameTests"],
     "fabric-gametest": [
       "xyz.pyrehaven.realsize.ScaffoldGameTests",

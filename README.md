@@ -90,6 +90,10 @@ bypass `hostileFloor`.
   never lowered to satisfy this cap.
 - `clientRenderDistanceFix` controls the optional client component in that
   client's local configuration. Server configuration does not toggle clients.
+  Edit the local file and run `/realsize-client reload` to apply that option
+  without restarting. Invalid reloads retain the previous option. This command
+  does not apply server sizing rules; integrated-server sizing still uses
+  `/realsize reload` separately.
 - `entityScales` accepts exact entity IDs and `#tag` selectors. Exact IDs win;
   conflicting tags are rejected rather than relying on map iteration order.
   Players and non-living entities are excluded.
