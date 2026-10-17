@@ -22,10 +22,16 @@ import xyz.pyrehaven.realsize.sizing.EntitySizing;
 
 public final class RealSizeMod implements ModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger("realsize");
+    private static RealSizeMod instance;
     private EntitySizing sizing;
+
+    public static EntitySizing currentSizing() {
+        return instance.sizing;
+    }
 
     @Override
     public void onInitialize() {
+        instance = this;
         ServerLifecycleEvents.SERVER_STARTING.register(server -> {
             try {
                 sizing = loadCandidate(server);

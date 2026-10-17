@@ -5,13 +5,18 @@
   "name": "RealSize development tests",
   "environment": "server",
   "entrypoints": {
-    "main": ["xyz.pyrehaven.realsize.SizingGameTests"],
+    "main": ["xyz.pyrehaven.realsize.SizingGameTests", "xyz.pyrehaven.realsize.SpawnGameTests"],
     "fabric-gametest": [
       "xyz.pyrehaven.realsize.ScaffoldGameTests",
       "xyz.pyrehaven.realsize.ResolvedSettingsGameTests",
-      "xyz.pyrehaven.realsize.SizingGameTests"
+      "xyz.pyrehaven.realsize.SizingGameTests",
+      "xyz.pyrehaven.realsize.SpawnGameTests",
+      "xyz.pyrehaven.realsize.SpawnPreparationGameTests",
+      "xyz.pyrehaven.realsize.ChunkSpawnGameTests",
+      "xyz.pyrehaven.realsize.SpawnDimensionGameTests"
     ]
   },
+  "mixins": ["realsize-test.mixins.json"],
   "depends": {
     "realsize": "*",
     "fabric-gametest-api-v1": "*"

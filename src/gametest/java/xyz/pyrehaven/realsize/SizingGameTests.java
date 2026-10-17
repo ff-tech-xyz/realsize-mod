@@ -394,10 +394,16 @@ public final class SizingGameTests implements ModInitializer {
         helper.assertTrue(helper.getLevel().addFreshEntity(chicken), "Actual baby must join server level");
         helper.assertTrue(Math.abs(chicken.getScale() * chicken.getAgeScale() - 0.22) < 0.00001,
                 "Registered entity-load callback must bound actual baby chicken");
-        helper.runAfterDelay(10, () -> {
+        int[] adultTick = {-1};
+        // Attribute dirt is consumed during an entity tick, not a fixed number
+        // of server ticks after asynchronous chunk registration.
+        helper.startSequence().thenWaitUntil(() -> {
             helper.assertTrue(!chicken.isBaby(), "Vanilla ticking must grow the baby");
             helper.assertTrue(Math.abs(chicken.getScale() - 0.25) < 0.00001,
                     "Registered tick reconciliation must update through same owner after natural growth");
+        }).thenExecute(() -> adultTick[0] = chicken.tickCount).thenWaitUntil(() -> {
+            helper.assertTrue(chicken.tickCount > adultTick[0], "Adult must tick to consume queued attribute dirt");
+        }).thenExecute(() -> {
             helper.assertTrue(Math.abs(chicken.getBoundingBox().getXsize()
                     - EntityTypes.CHICKEN.getDimensions().width() * 0.25) < 0.00001,
                     "Vanilla attribute updates must refresh actual collision dimensions after growth");
@@ -407,15 +413,14 @@ public final class SizingGameTests implements ModInitializer {
             cow.setBaby(true);
             var pig = helper.spawn(EntityTypes.PIG, 2, 2, 1);
             pig.setBaby(true);
-            helper.runAfterDelay(2, () -> {
+            helper.startSequence().thenWaitUntil(() -> {
                 helper.assertTrue(Math.abs(zombie.getScale() * zombie.getAgeScale() - 0.6) < 0.00001,
                         "Hostile actual baby must reach category floor");
                 helper.assertTrue(cow.getAttribute(Attributes.SCALE).getModifier(OWNED_SCALE) == null
                         && cow.getScale() * cow.getAgeScale() == 0.5f, "Neutral baby must remain vanilla");
                 helper.assertTrue(pig.getAttribute(Attributes.SCALE).getModifier(OWNED_SCALE) == null
                         && pig.getScale() * pig.getAgeScale() == 0.5f, "Absent baby must remain vanilla");
-                helper.succeed();
-            });
+            }).thenSucceed();
         });
     }
 

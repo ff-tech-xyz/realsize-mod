@@ -861,3 +861,616 @@ evidence, not acceptance of the new implementation. Local/connected gameplay,
 single-player, profiling, uninstall, CI and release gates remain open. The
 architecture groundwork is independently reviewed and committed before source
 implementation; its commit/review identifiers belong in the Kanban handoff.
+
+## Finalized-candidate transaction blocker — 2026-10-15
+
+Scope: the resumed `t_ef0c50ef` worker. Approved architecture groundwork was
+independently reviewed READY by `gpt-6.1-sol/openai-codex`,
+`deleg_eba11ebc/task-0`, against staged SHA-256
+`b8d94b3c01e0d189a9a95accc1ed740cd0ec929c5b2fed2b9982d5ba17631415`.
+Commit `fb7851a9cea07db64b2ee5826776cb5636141876` passed the architecture hook,
+was pushed to `origin/update/V.1.2.0`, and `git ls-remote origin
+refs/heads/update/V.1.2.0` read back the same SHA. This is a documentation
+commit, not a completed spawn-clearance feature.
+
+An uncommitted implementation attempted the approved SpawnUtil and
+NaturalSpawner placement adapters. SpawnSizing delegated to the current
+EntitySizing owner, refreshed fresh-candidate dimensions and checked actual
+collision. SpawnUtil's existing failure branch correctly discarded/retried
+instead of reporting a false successful Optional. NaturalSpawner checks vanilla
+obstruction before finalization, but finalization can change age, dimensions
+and attributes. The attempted adapter moved that one finalization call before
+the acceptance branch and retained its returned group reference only on success.
+That last design is unsafe: finalization is not a transaction.
+
+Commands/results from the repository (logs below are under the runtime root):
+
+- `./gradlew runGameTest --console=plain`, `evidence/spawn-golem-red.log`:
+  **BUILD FAILED**, **24 tests, 1 failure**, enlarged village golem incorrectly
+  accepted under the three-block roof. The corresponding
+  `spawn-golem-green.log` passed **all 24** after the utility adapter.
+- The retry test actually exposed a second candidate after the first failed:
+  `run/gameTest/sizing-evidence/spawn-retries.txt` records `candidates=2`,
+  registered success and height `3.9150002002716064`. The adequate/short golem
+  measurements are in `village-golem.txt` in that same evidence directory.
+- The natural-loop tracer in `spawn-natural-fixture.log` failed the actual
+  finalized-scaled-collision assertion. The corrected loaded-fixture run,
+  `spawn-natural-passed.log`, reported **BUILD SUCCESSFUL**, **26 tests passed**.
+  It called real `NaturalSpawner.spawnCategoryForPosition` in a mushroom biome
+  with a real GameTest server player: **723 short-space candidate predicates,
+  0 short-space successes, 160 adequate-space successes**. Actual measurements
+  are in `sizing-evidence/natural-ticking.txt`. These results did not expose the
+  finalization side effects and do not establish the complete feature.
+- Harness failures are retained, not presented as production red cycles:
+  `spawn-natural-red.log` failed compilation on protected `Level.random`;
+  `spawn-natural-red-runtime.log` reached no instance candidates before fixture
+  lighting/loading was ready; `spawn-natural-green.log` hit registration timing;
+  `spawn-natural-loaded.log` failed fixture tracking and an existing lifecycle
+  assertion; `spawn-natural-loaded-2.log` crashed on a redundant fillbiome command
+  (`No biome entries were changed`). The corrected fixture waits for actual
+  entity loading/tracking and lighting; the passing run above is the evidence.
+- Independent advisory source/bytecode review by
+  `gpt-6.1-sol/openai-codex`, `deleg_02168e00/task-0`, returned **BLOCKED**.
+  AgeableMob finalization mutates the passed group in place. Zombie finalization
+  can flag/mount an existing chicken or register a new jockey chicken before
+  clearance. Discarding the rejected mob does not roll those effects back.
+  The moved direct call also bypasses wrappers on vanilla's original call site.
+  No READY feature receipt was recorded.
+- Added executable probes of the helper actually merged into transformed
+  NaturalSpawner, then ran the same GameTest command:
+  `evidence/spawn-finalization-blocker.log` **BUILD FAILED**, **28 tests,
+  2 failures, 0 errors**. Both failures are the new transaction assertions.
+  A rejected mooshroom changed an existing group's size **1 -> 2** and was
+  discarded, with actual final height `2.0299999713897705`. A rejected baby zombie
+  with a valid custom floor/hostileFloor `1.2` marked an **existing** chicken as
+  a jockey on attempt index **15**; the chicken remained alive. The probe found
+  **0 new orphan chickens** in that run: their possibility is bytecode evidence,
+  not an observed orphan claim. These two probes call the real transformed
+  private helper reflectively with real mobs/group state; they are not complete
+  natural-loop end-to-end tests. The earlier ticking test exercises that loop.
+
+Reproducer sources, tracked diff and failing XML are archived under
+`../../runtime/realsize-mod/evidence/spawn-finalization-attempt/` and in
+`spawn-finalization-attempt.zip` (SHA-256
+`308df5b3fcaa75def57ba6b973eacf798f7b2c17eb5dd028517ab2880ef77367`). The archive
+is based on `fb7851a`; its `src/` files reproduce the attempted source/wiring.
+Actual measurements are `run/gameTest/sizing-evidence/finalization-group-blocker.txt`
+and `finalization-jockey-blocker.txt`. Fresh local `javap -p -c` inspection is in
+`evidence/spawn-ageable-finalization.txt` and `spawn-zombie-finalization.txt`.
+The independent review transcripts are
+`/home/p-h-r-e-d/phred2.0/home/cache/delegation/live/deleg_eba11ebc/task-0.log`
+and `deleg_02168e00/task-0.log` in the same delegation directory.
+
+All attempted production/test sources and metadata wiring were removed after
+archiving; no unsafe feature source was committed or pushed. Restored
+`./gradlew clean build --console=plain` reported **BUILD SUCCESSFUL**, **13
+actionable tasks: 11 executed, 2 up-to-date**, **21 JUnit tests and 23 Minecraft
+tests, 0 failures/errors/skipped** (`evidence/spawn-finalization-restored-build.log`).
+`python3 scripts/server-smoke.py` passed dedicated startup, save/stop/exit **0**
+and class isolation (`evidence/spawn-finalization-restored-smoke.log`). The
+restored artifact SHA-256 is
+`bf69a595be0705b1d926ccbbc23378c31581123cd0d16a9c6669d317fa291712`; direct JAR
+inspection finds none of the attempted spawn classes/config/tests. An accessible
+`/proc` cwd/fd scan found **0 runtime process references** after shutdown.
+
+The approved narrow mixin exception remains valid; it does not by itself make
+speculative finalization safe. A verified design/approval decision is needed for
+finalized natural candidates: preserving the final-dimensions guarantee cannot
+silently permit rejected candidates to mutate group or existing-world state.
+No general transaction/rollback layer, species-size model, broader server hook,
+or weakened acceptance was invented here. RS-08 and its dependent client/final
+validation cards remain blocked. Chunk-generation behavior, explicit summon and
+reload non-relocation acceptance, connected clients, single-player, profiling,
+uninstall, CI and release gates are still unperformed. This new blocker section
+is an uncommitted evidence update, not an independently approved feature commit.
+
+### Resume verification — 2026-10-15 15:45 UTC
+
+The next run re-read the card and approval: no new finalization design or scope
+decision supersedes the blocker above. No production source was changed.
+`git branch --show-current` reports `update/V.1.2.0`; HEAD and a fresh
+`git ls-remote origin refs/heads/update/V.1.2.0` both identify
+`fb7851a9cea07db64b2ee5826776cb5636141876`. Only FIXES.md is modified.
+
+Fresh `./gradlew clean build --console=plain` failed: 23 Minecraft tests,
+one failure in `registeredLifecycleLoadsAndReconcilesNaturalGrowth` at
+`Vanilla attribute updates must refresh actual collision dimensions after
+growth on tick 10`. Log: `evidence/spawn-resume-verification-build.log` under
+the runtime root. An unchanged rerun of the same command passed: **BUILD
+SUCCESSFUL**, 13 actionable tasks (11 executed, 2 up-to-date); parsed XML has
+**23 Minecraft and 21 JUnit tests, zero failures/errors/skipped**. Retry log:
+`evidence/spawn-resume-verification-retry-build.log`. The first failure remains
+an unresolved intermittent groundwork failure, not a passing test or a proved
+root cause. No test or acceptance criterion was weakened to obtain the retry.
+
+Re-read archived XML confirms **28 tests, 2 failures**, specifically the
+rejected-group and rejected-zombie assertions. Recomputed archive SHA-256
+matches `308df5b3fcaa75def57ba6b973eacf798f7b2c17eb5dd028517ab2880ef77367`.
+Saved measurements still show group size `1 -> 2` and the surviving existing
+chicken marked as a jockey; these are archived observations, not a fresh run
+of the removed unsafe implementation. Accessible `/proc` cwd/fd scan found no
+runtime references after verification. `git diff --check` passed before this
+evidence append. No feature commit, push, new review receipt, or next-card work
+was performed. Elijah's finalization design/guarantee decision is still required;
+the card must remain blocked rather than release its dependent.
+
+## Bounded pre-finalization alternatives — 2026-10-15
+
+Card `t_fa42570e` supersedes the preceding request for an unspecified design
+decision. The narrow placement exception remains approved. This run investigated
+new executable alternatives rather than repeating the unsafe early-finalization
+implementation. **The feature is still not implemented.** The issue is a missing
+authoritative dimension bound or separable finalization seam, not missing text
+from Elijah's approval.
+
+Verified local branch `update/V.1.2.0`, HEAD and fresh remote read-back both
+`fb7851a9cea07db64b2ee5826776cb5636141876`. The architecture groundwork exists.
+Only the preceding 132-line FIXES.md evidence update was dirty on arrival; it is
+preserved. The project routing registry has no realsize entry; no other lane or
+infrastructure configuration was changed. Java remains 25, Minecraft 26.3,
+artifact version 1.2.0.
+
+Two candidate designs were tested without changing production source:
+
+1. Reconcile through the existing EntitySizing owner and check the fresh
+   candidate's actual dimensions before vanilla finalization.
+2. Check an envelope of EntityType dimensions times the configured cap before
+   finalization, including a separate control accounting for an already-present,
+   measured foreign total scale multiplier of 1.2.
+
+The development-only `SpawnPreflightSpike` used the real Fabric GameTest server,
+actual transformed Slime finalization, resolved settings and the existing owner.
+It built a two-block-clearance room, checked each candidate before finalization,
+executed the real finalizer once, reconciled/refreshed dimensions, then measured
+actual world collision. It never registered the candidates. Each probe used 32
+world-random seeds (43000 through 43031), with an existing AgeableMob group of
+size 1. These are local finalization-boundary probes, **not end-to-end natural
+placement/retry acceptance** or a test of foreign modifiers added by finalizers.
+
+`./gradlew runGameTest --console=plain` exited **1**, **BUILD FAILED** (the test
+server exited 3). Parsed XML: **26 Minecraft tests, exactly 3 failures, 0 errors**;
+all failures are the three new probe assertions. Each probe found **11 false-clear
+results out of 32**. Seed 43000 produced size 4:
+
+- Current candidate: pre-height/envelope `0.7540000081062317`, final height
+  `3.0160000324249268`; pre-check clear, finalized collision.
+- Type/cap envelope: the same insufficient `0.7540000081062317` envelope and
+  `3.0160000324249268` final height; pre-check clear, finalized collision.
+- Foreign-inclusive type/cap envelope: envelope `0.9047999978065491`, final height
+  `3.6191999912261963`; pre-check clear, finalized collision.
+
+The group changed **1 -> 2** in all recorded rows. Fresh `javap -p -c -classpath
+<pinned-common-jar> <class>` inspection covers SpawnUtil, NaturalSpawner,
+EntityType, AgeableMob, Slime, MagmaCube, AbstractCubeMob and Zombie. In
+AbstractCubeMob, finalization calls AgeableMob (including the shared-group
+increment) before `setSpawnSize`; `getDefaultDimensions` multiplies the type
+dimensions by that intrinsic size. RealSize's age-aware multiplier/cap is not a
+bound on intrinsic variants. Reading current attributes or type dimensions does
+not discover this final size. Applying another RealSize multiplier is not a fix.
+
+Independent read-only review by Hermes subagent `gpt-6.1-sol/openai-codex`,
+`deleg_9f672ebb/task-0`, verified the source, XML, measurements and fresh bytecode.
+It confirmed both alternatives fail and found no demonstrated complete solution
+inside the placement-only boundary. It explicitly did **not** prove that every
+possible conservative envelope is impossible. No READY feature receipt was issued.
+
+Other placement-only choices do not repair the demonstrated effects:
+
+- Checking after vanilla finalization discovers dimensions, but cannot prevent
+  the already-executed group or jockey effects. Suppressing assignment of returned
+  group data/counters does not undo an in-place mutation.
+- Moving/reusing a finalized candidate across retries leaves its first-location
+  effects behind. Difficulty, group and jockey choices belong to that location;
+  retry exhaustion still leaves effects. Re-finalizing also breaks the once-only
+  contract. No rollback layer was introduced.
+- Rejecting every uncertain type would suppress legitimate adequate-space
+  spawns, not complete the feature. A species-maxima table would be the prohibited
+  second model. Current type/cap bounds are now executably disproved.
+- SpawnUtil obtains an already-finalized candidate from EntityType.create before
+  its instance placement checks. Its golem fix is feasible in isolation, but
+  shipping that partial fix would not solve NaturalSpawner or the all-candidate
+  state guarantee for arbitrary SpawnUtil types.
+
+**Concrete scope needed before implementation can continue:** authorize a
+candidate preparation/commit seam in entity finalization, beyond the currently
+approved SpawnUtil/NaturalSpawner adapters. Known required sites are
+AgeableMob's shared-group increment, AbstractCubeMob's size selection after that
+increment, and Zombie's existing-chicken flag/mount plus new-chicken registration.
+The extension must let intrinsic final dimensions be resolved before externally
+visible effects, retain the original invocation chain and once-only random
+choices, and commit group/world effects only after clearance succeeds. These are
+known minimum sites, **not an exhaustively audited sufficient patch list**;
+remaining finalizers and foreign wrappers need auditing before promising coverage.
+No broader mixin has been added or inferred from the placement approval.
+
+An alternative would require an authoritative side-effect-free envelope API from
+entity/finalization owners, with explicit intrinsic-variant/age/foreign-change and
+positioning coverage. The pinned APIs inspected do not supply that bound. This
+is not permission to invent a RealSize species table or weaken the guarantee.
+
+Evidence lives under `../../runtime/realsize-mod/evidence/spawn-safe-preflight/`:
+archived `SpawnPreflightSpike.java`, temporary `fabric.mod.json`, `probes.log`,
+`probes-results.xml`, three `safe-preflight-*.txt` measurement files, and fresh
+`*-bytecode.txt`. The independent review transcript is
+`/home/p-h-r-e-d/phred2.0/home/cache/delegation/live/deleg_9f672ebb/task-0.log`.
+`../spawn-safe-preflight.zip` archives this evidence plus restoration reports;
+SHA-256 `1976023237ea9be926f242c0c3d09b0b595fa9ed65f9bf6c8811ff7269e2e63a`.
+
+The throwaway class and metadata wiring were removed after archiving.
+`./gradlew clean build --console=plain` then exited **0**, **BUILD SUCCESSFUL in
+18s**, 13 actionable tasks (11 executed, 2 up-to-date). Parsed testcase elements:
+**23 Minecraft tests, 0 failures/errors; 21 JUnit tests, 0 failures/errors/skipped**.
+The existing natural-growth lifecycle test passed on this run and in the spike
+run. The earlier intermittent failure remains unresolved; these passes are **not**
+a fix or acceptance-by-retry. No unchanged retry was needed this run.
+`python3 scripts/server-smoke.py` exited **0** and reported dedicated startup,
+Done, save/stop/exit 0, and no RealSize/Minecraft client class loads. Logs are
+`restored-build.log`, `restored-results.xml`, `restored-smoke.log` in the new
+evidence directory. Restored JAR SHA-256 is
+`bf69a595be0705b1d926ccbbc23378c31581123cd0d16a9c6669d317fa291712`.
+Accessible `/proc` cwd/fd scan found **0 runtime process references** after smoke.
+
+Only FIXES.md remains modified. No source commit/push, PR, release, production
+change, tracking hook, client-culling implementation or downstream work occurred.
+RS-08 remains open; all required feature acceptance gates not covered by these
+counterexamples remain unperformed. The dependent client card stays gated until
+the whole spawn feature is genuinely complete, reviewed, committed and pushed.
+
+## Preparation-boundary progress and review-tool blocker — 2026-10-17
+
+Card `t_fa42570e` resumed under the authoritative parent scope extension. This
+run did not ask Elijah for another engineering permission. Necessary candidate
+preparation/finalization hooks are approved under his delegated authority;
+correctness, Warden and independent review remain required.
+
+Fresh `./gradlew genSources --console=plain` exited **0**. The pinned Minecraft
+26.3 common sources expose **59 entity finalizeSpawn declarations**. Inspection
+also found fish-school leader updates, Drowned nautilus registration, Husk camel
+and parched registration, and mount/dismount events beyond the earlier group/
+chicken findings. Advisory independent design review `deleg_81d493e4/task-0`
+identified transitive mount/abort effects, fresh vehicles/sibling ownership,
+projection of existing-chicken attachment, and the need to check after the full
+composed finalization expression rather than inside one wrapper.
+
+README and ARCHITECTURE now define this bounded preparation/commit boundary.
+Exact staged architecture diff SHA-256
+`e3a02dfd4addd5bd074858e9b35f71e6573e2fcbb09c9328edeeaa3f4e9f3093` received
+independent **READY, documentation only** from `gpt-6.1-sol/openai-codex`,
+`deleg_a240956b/task-0`. The genuine receipt passed the architecture hook.
+Commit `4759c7379ba2ce017af3cb6cfe7b9ff41b40d746` was pushed to
+`origin/update/V.1.2.0`; `git ls-remote origin refs/heads/update/V.1.2.0` read
+back that exact SHA. No production spawn feature is in that commit.
+
+An uncommitted vertical implementation retained the original NaturalSpawner
+finalization invocation and added a narrow post-expression rejection edge before
+group assignment, counters, registration and callbacks. The returned group was
+kept in a temporary local, not replaced with a sentinel visible to wrappers.
+Scoped candidate preparation deferred explicit group/jockey/registration effects;
+an ephemeral mount plan projected attachment positions without mutating existing
+chickens. This implementation is **unfinished and not independently reviewed**.
+It was archived and removed, not shipped as a partial feature.
+
+Commands below ran from the repository. Logs are under
+`../../runtime/realsize-mod/evidence/spawn-prepare-audit/`:
+
+- `./gradlew runGameTest --console=plain`, `golem-red.log`: exit **1**, **24
+  tests, one failure**, enlarged SpawnUtil golem accepted a three-block roof.
+  `golem-green-target.log`: exit **0**, **24 tests, zero failures/errors**;
+  the actual transformed path rejected the short roof, used exactly two candidates,
+  then registered a final-height `3.9150002002716064` golem in four-block space.
+  The first adapter run (`golem-green.log`) failed injection because its
+  obstruction descriptor used ServerLevelAccessor instead of actual LevelReader;
+  fresh javap inspection corrected the target. This is a harness/injection error,
+  not a passing behavioral cycle.
+- `natural-red-report.log`: exit **1**, **25 tests, one failure**, actual ticking
+  NaturalSpawner accepted a finalized-scaled collision. An earlier harness
+  (`natural-red.log`) wrapped the GameTest assertion and crashed the server;
+  the corrected harness preserves the assertion type and produces failing XML.
+  The initial plugin (`natural-edge.log`) failed closed on Minecraft's IFNE/GOTO
+  guard shape; accepting that verified shape restored transformation. Natural
+  clearance then passed in `natural-edge-guard.log`, but that run exposed the
+  lifecycle failure described below.
+- `group-red-target.log`: exit **1**, **25 tests, one failure**, rejected actual
+  natural candidates incremented their groups. A development call-site wrapper
+  observed real finalization/group objects. `group-green.log`: exit **0**, **25
+  tests, zero failures/errors**, after deferred shared-group increments. The
+  earlier `group-red.log` failed the test probe injection count; narrowing its
+  selector to the exact ticking overload fixed the probe, not production behavior.
+- `jockey-red.log`: exit **1**, **26 tests, one failure**, the actual SpawnUtil
+  path changed the existing chicken at world-random seed **12280**. With scoped
+  preparation, `jockey-prepare.log` exited **0**, **26 tests, zero failures/errors**.
+  The new test exercised **4,000 seeds (12000 through 15999)** with a valid custom
+  floor/hostileFloor `1.2` and a two-block roof. All returned empty; existing
+  chicken flag, passengers, position and lifetime remained unchanged; a real
+  ENTITY_LOAD observer saw no orphan registrations. These checks do not establish
+  accepted jockey equivalence, all companion families or complete natural-loop
+  side-effect coverage.
+
+The lifecycle flake was reproduced again, not accepted by retry:
+`natural-edge-guard.log` has **25 tests, one failure** at the existing exact
+collision-width assertion on server tick 10. Source inspection shows
+LivingEntity consumes dirty attributes during its own tick, while the existing
+owner reconciles at END_LEVEL_TICK; newly added entities also wait for asynchronous
+chunk tracking. Ten server ticks do not establish an additional entity tick after
+the adult modifier update. The archived test change waits for actual adult/scale
+reconciliation, then for `chicken.tickCount` to advance once, and retains the
+same exact collision assertion. Subsequent changed-code runs passed. This is a
+causal fixture correction candidate, **not a proved complete flake fix**: it
+still needs independent review and a deterministic queued-update regression.
+The source restoration below also restores the original flaky fixture.
+
+The implementation was not ready for its mandatory final review. A further
+advisory review request was refused by `delegate_task`: **"Delegation budget for
+this one-shot run is exhausted (2/2 subagents used; delegation.oneshot_max_children)."**
+That is an actual tool-capacity blocker, not a new scope-approval request. No
+self-review or invented READY receipt substituted for the required independent
+feature review. Resume in a fresh worker with an available reviewer slot; reserve
+that slot for the eventual exact-staged feature review rather than spending it
+on additional preliminary design reviews.
+
+Unfinished source, tracked patch, manifest, failing/passing logs and the latest
+26-test green XML are archived in
+`../../runtime/realsize-mod/evidence/spawn-prepare-unfinished.zip`, SHA-256
+`3c2a29bbae79f04c3e3f1e1f2ed0200d3d088eeaab8c8bb669e32198c2bfbcea`.
+The unpacked `spawn-prepare-audit/unfinished-source/` tree and
+`unfinished-tracked.diff` are based on architecture commit `4759c73`.
+They are engineering evidence, not an installable or accepted deliverable.
+
+Known required work before any feature acceptance/commit: complete Drowned/Husk
+registration and fish-school effects; verify shared-group reads inside composed
+finalizers; accepted mount-plan/replay equivalence and event behavior; actual
+chunk-generation retries; both inner/outer foreign dimension wrappers; baby/
+intrinsic variant/foreign dimensions; non-relocation of existing mobs, explicit
+summons and reload; deterministic lifecycle regression; exact-staged independent
+review, full build/smoke, coherent feature commit/push and remote SHA read-back.
+The current passing slices do not waive any of these checks.
+
+After archiving, all experimental source/metadata edits were restored to the
+reviewed architecture commit; only the historical and this new FIXES.md evidence
+remain dirty. `./gradlew clean build --console=plain` exited **0**; parsed reports
+have **23 Minecraft and 21 JUnit tests, zero failures/errors/skipped**.
+`python3 scripts/server-smoke.py` exited **0**. Restored JAR SHA-256 is
+`bf69a595be0705b1d926ccbbc23378c31581123cd0d16a9c6669d317fa291712`;
+direct JAR inspection found no experimental spawn owners/plugin/mixin config or
+GameTests. Accessible `/proc` cwd/fd inspection found **zero runtime references**.
+These restored passes are not spawn-feature acceptance or a lifecycle-flake fix.
+No feature commit, main change, PR, release, production mutation, public metadata
+deployment or downstream implementation occurred. Child `t_29eb3bd3` was read
+and remains dependency-gated. RS-08 is open; this card must not complete.
+
+## Resumed preparation tests and fail-closed commit blocker — 2026-10-17
+
+Card `t_fa42570e` resumed from verified architecture commit
+`4759c7379ba2ce017af3cb6cfe7b9ff41b40d746`. Fresh remote read-back matched.
+The preceding archive checksum matched
+`3c2a29bbae79f04c3e3f1e1f2ed0200d3d088eeaab8c8bb669e32198c2bfbcea`.
+All prior FIXES evidence was retained. No new engineering permission was requested.
+
+The restored experimental implementation gained explicit pending ageable-group
+reads, deferred fish-school counter effects, deferred Drowned/Husk companion
+registrations, and projected membership reads used by vanilla mount admission.
+This is **unfinished, unreviewed feature source**, not an accepted implementation.
+The original finalization call sites remain in place; no early-finalization or
+rollback approach was restored.
+
+Commands were run from the checkout. Logs below are under
+`../../runtime/realsize-mod/evidence/spawn-resume/`:
+
+- `./gradlew runGameTest --console=plain`, `effects-red.log`: exit **1**,
+  **29 tests, 3 failures, 0 errors**. An outer finalizer observed a missing pending
+  group increment; a rejected fish incremented an existing leader; 4,000 direct
+  transformed Drowned/Husk finalization attempts (2,000 per type) produced **460
+  companion registrations** before abort. `effects-red.xml` preserves that run.
+  After the new effects/projection hooks, `effects-green.log`: exit **0**,
+  **29 tests, zero failures/errors**. These detailed boundary tests are not
+  substitutes for the actual placement-path tests.
+- Same command, `mount-pairs.log`: exit **1**, **30 tests, 2 failures**. The
+  lifecycle test's separate fixed two-tick wait also failed; it now waits for
+  actual reconciliation without weakening the category assertion. The mount
+  comparison initially used different random companion constructor yaws.
+  `mount-measure.log` retained the measured attachment-position difference at
+  Husk seed 60010. Both controls now use the same explicit yaw before comparing
+  vanilla positioning with the prepared gate. This fixture correction is not
+  claimed as a production mount fix.
+- `paired-chunkgen.log` and `chunkgen-measure.log` failed the initial chunkgen
+  fixture (no demonstrated candidate/finished entity tracking respectively).
+  The corrected fixture uses a real mock server player, waits for entity loading
+  and lighting, and reuses one seeded generation RNG rather than correlated
+  first draws from adjacent seeds. These are harness corrections, not production
+  red cycles. `chunkgen-player.log`: exit **0**, **31 tests, zero failures/errors**.
+- Latest exact archived-source check, `checkpoint.log`: exit **0**, **31 tests,
+  zero failures/errors**, confirmed by parsed `checkpoint.xml`. Actual
+  `NaturalSpawner.spawnMobsForChunkGeneration` ran with two independently
+  prioritized call-site wrappers (1100/900). Both executed once per finalized
+  candidate. The outer wrapper introduced real collision after finalization;
+  **90 rejected finalized candidates, zero registrations**, unchanged group
+  counts and discarded candidates were observed. Open-space phase: **38
+  finalized candidates and 38 registrations**, both foreign scale modifiers
+  preserved, real final hitboxes clear. Distinct candidate coordinates verify
+  the original retry coordinate continuation. See `chunkgen-coverage.txt`.
+- The paired mount test used 1,000 seeds per Husk/Drowned/Spider/Strider, comparing
+  actual vanilla finalization outside preparation with the prepared chain.
+  Mounted cases observed were **102 Husk, 31 Drowned, 9 Spider, 128 Strider**;
+  see `mount-coverage.txt`. Tests compared age, tree topology, attachment positions,
+  registration order and accepted mount-event counts, and checked abort emits no
+  mount/dismount events and removes fresh vehicles/siblings. The first actual
+  accepted riding-position update agreed with clearance. These are bounded
+  transformed finalization comparisons with normalized yaw, not all-mod
+  compatibility or complete natural-loop jockey acceptance. Accepted dismount
+  event equivalence and the existing-chicken accepted case still need coverage.
+
+The necessary exact architecture-tree inventory received independent
+**READY, documentation only** from `gpt-6.1-sol/openai-codex`,
+`deleg_8877afc8/task-0`; staged diff SHA-256
+`e4b753918eed7637778f537f789890d07b330c46b2fced41426f6ecd6dc770f9`.
+The reviewer inspected the actual staged diff; the genuine receipt was recorded.
+`git commit -m 'Declare spawn preparation adapter layout'` then exited **1**:
+architecture conformance passed, but the mandatory scanner reported:
+`secret-scan: BLOCKED — required credential scan could not run: secret store not found: /home/p-h-r-e-d/.secrets/store.json`.
+The physical pre-commit hook failed closed. No commit was created and no scanner,
+hook or credential-store configuration was bypassed or modified. Further source
+work stopped at this actual tool prerequisite, not a new scope-approval question.
+Restore the required store through its authorized owner, or repair the canonical
+scanner's store resolution in its own reviewed infrastructure work, before retrying.
+
+New archive: `../../runtime/realsize-mod/evidence/spawn-resume-unfinished.zip`,
+SHA-256 `0c06f090c2ab6a75571a44d23641f64359e9d7b1365771511dc3a02eda6290f5`.
+Its **44 entries** include **28 source/architecture files**, tracked and reviewed
+architecture patches, a per-file SHA manifest, logs, real coverage measurements,
+and exact latest XML. ZIP integrity and every archived source byte were checked
+against the checkout before restoration. Unpacked source is
+`spawn-resume/unfinished-source/`, based on `4759c73`; the original prior archive
+is unchanged. The architecture inventory patch is reviewed but **not committed**;
+it needs a fresh hash check and valid receipt after restoring it. It must commit
+before the eventual feature commit. Architecture READY is not feature READY.
+
+Remaining feature work includes finalizer/wrapper audit and independent exact
+feature review; complete variant/baby/foreign-dimension and accepted existing-
+chicken coverage; deterministic queued-attribute lifecycle regression (the causal
+wait corrections alone are not that regression); explicit summons/existing-mob/
+reload non-relocation acceptance; full candidate build/artifact smoke; feature
+commit/push and exact remote read-back. No `SpawnDimensionGameTests` stub was
+created: that declared path is intended for these remaining acceptance tests.
+The current 31 passing slices do not waive any missing criterion.
+
+After archiving, all experimental source and the uncommitted architecture patch
+were restored to `4759c73`; only FIXES.md remains dirty. Restored
+`./gradlew clean build --console=plain`, `restored-build.log`: exit **0**,
+**23 Minecraft and 21 JUnit tests, zero failures/errors/skipped**. The original
+lifecycle fixture is restored too; its passing restoration run is not its fix.
+`python3 scripts/server-smoke.py`, `restored-smoke.log`: exit **0**, dedicated
+startup, save/stop/exit 0 and client isolation passed. Restored JAR SHA-256:
+`bf69a595be0705b1d926ccbbc23378c31581123cd0d16a9c6669d317fa291712`.
+JAR inspection found no experimental spawn/config/test entries. Accessible
+`/proc` cwd/fd scan found **zero runtime process references**. Local HEAD and
+fresh remote SHA remain `4759c7379ba2ce017af3cb6cfe7b9ff41b40d746`.
+No feature review, commit/push, main change, PR, release, production mutation,
+public metadata deployment or downstream implementation occurred. Child
+`t_29eb3bd3` was inspected and remains dependency-gated. RS-08 stays open.
+
+## Spawn feature candidate and resumed acceptance — 2026-10-17
+
+The live base and fresh remote were exactly `4759c7379ba2ce017af3cb6cfe7b9ff41b40d746`.
+The newest 44-entry archive matched SHA-256
+`0c06f090c2ab6a75571a44d23641f64359e9d7b1365771511dc3a02eda6290f5`;
+all 28 manifest entries matched before restoring the 27 source/resource files.
+Prior FIXES bytes were preserved. The obsolete scanner failure above is historical:
+the installed physical hook now runs architecture conformance, not that removed
+scanner. No credentials, hook, scanner or Warden configuration changed.
+
+The exact architecture inventory diff again hashed to
+`e4b753918eed7637778f537f789890d07b330c46b2fced41426f6ecd6dc770f9`.
+Independent `gpt-6.1-sol` reviewer `deleg_6e6a4dfe/task-0` returned READY for that
+documentation-only staged diff. The physical hook passed on the real nonempty
+commit `bb22df16af15857a0b45618825fbba72c66425b4`, before source restoration.
+This architecture review is not feature approval.
+
+The preparation adapters preserve the original finalization invocations and
+their composed wrappers. The NaturalSpawner plugin adds only the rejection
+continuation before group assignment/counters/registration, using a temporary
+group local. SpawnUtil contains effects across full EntityType creation and its
+original admission checks. EntitySizing remains the sole sizing mutation owner.
+Candidate scope contains group/school counts, fresh companions, projected mounts,
+existing-chicken state and explicitly queued registration/events/sounds. No
+general rollback, second species-sizing model, tracking or networking was added.
+
+The resumed audit extracted and inspected 59 entity finalizer bodies from the
+pinned 26.3 sources; `evidence/spawn-resume/finalizer-audit-source.txt` preserves
+them. Externally visible families are ageable group counts, schooling-fish leader
+counts, zombie chicken state/registration, Husk/Drowned registrations, Spider/
+Strider/ZombieHorse attachment helpers, and CopperGolem/Warden spawn sounds.
+Candidate-local variants, age, equipment, attributes and brain memories execute
+once. Arbitrary foreign finalizers with additional external writes still require
+cooperative integration; the README/architecture explicitly exclude that promise.
+
+New transformed evidence under `../../runtime/realsize-mod/evidence/spawn-resume/`:
+
+- `dismount-red.log/.xml`: 32 tests, two failures: explicit removeVehicle left
+  projected membership stale, and the chunkgen readiness fixture timed out.
+  The explicit dismount/cooldown projection seam then passed in
+  `dismount-green.log` (32 tests, zero failures). Abort emits no mount/dismount
+  events; accepted replay emits two mounts and one dismount and respects the
+  vanilla remount cooldown. This is a production red-to-green cycle.
+- The preexisting growth fixture now waits for actual reconciliation and one
+  additional entity tick, retaining exact bounding-box assertions. The new
+  deterministic test runs real chicken ticks and the registered end-level event:
+  reconciliation queues SCALE dirt while bbox is stale; the next entity tick
+  consumes it and refreshes the exact adult bbox. This directly demonstrates why
+  a fixed server-tick delay was insufficient, without retrying unchanged tests.
+- Actual SpawnUtil tests cover 128 seeded chicken/slime candidates, real baby
+  and intrinsic slime sizes, a late foreign scale modifier, and a transformed
+  foreign dimension-return modifier independent of SCALE. Accepted results use
+  final clear hitboxes and vanilla coordinates; rejected candidates are removed
+  before registration. Existing golem retry, actual ticking natural-loop group
+  rejection, chunkgen retry and 1100/900 composed-wrapper tests remain active.
+- Accepted existing-chicken SpawnUtil is paired with actual unprepared vanilla
+  finalization/registration, preserving existing chicken bbox/position and
+  accepted rider position/event/registration sequence. Seed 12280 is included.
+  The fixture now awaits real dark-room lighting before vanilla walk-target
+  admission; earlier open/instant-dark fixtures failed admission independently
+  of preparation and were not claimed as production bugs.
+- Real summon command, existing colliding golem reload, and real save/load tests
+  verify that placement scope does not veto, delete or add relocation. Vanilla
+  refreshDimensions itself nudges the roof-colliding golem upward by 0.000001;
+  the test compares exact positions against equally scaled vanilla controls,
+  rather than suppressing that behavior or claiming literally zero movement.
+  A first command fixture used scientific-notation coordinates rejected by
+  Brigadier; fixed-format decimal coordinates correct the fixture.
+- The fast-ticking GameTestServer burned the old 400-tick chunkgen entity-I/O
+  readiness timeout in under 300 ms. A bounded 1 ms backoff only while storage
+  remains unready gives actual I/O time; readiness and collision assertions stay
+  required. This is a fixture correction, not a placement production fix.
+- The full build first exposed the scaffold-era blanket no-mixins package
+  assertion (21 JUnit, one failure). It now verifies the actual packaged common
+  spawn config, required injections and adapter/plugin classes, while forbidding
+  unimplemented client mixins and retaining metadata/client/test isolation checks.
+
+`./gradlew clean build --console=plain` (`candidate-build.log`) exited 0:
+36 Minecraft tests and 21 JUnit tests, zero failures/errors/skipped.
+`python3 scripts/server-smoke.py` (`candidate-smoke.log`) exited 0, dedicated
+startup/save/stop and client isolation passed. An additional actual-artifact
+probe `python3 ../../runtime/realsize-mod/evidence/spawn-resume/artifact-smoke.py`
+also exited 0: Fabric KnotServer loaded RealSize from the packaged JAR, not
+build/classes, reached Done, saved/stopped/exited 0 with no development test mod
+or Minecraft/RealSize client class loading. It used the pinned development game
+and dependency classpath with source outputs removed, not a separately installed
+production distribution. The exact tested JAR SHA-256 is
+`9c2302827dbb04b7814c528cdcec8e72a54da096d50353e21b4124bb5268e6f3`.
+
+Feature exact-staged independent review and final commit/push/read-back are still
+pending at this candidate checkpoint. RS-08 and the dependent client gate are
+not marked complete by these test results alone. No player-facing deployment,
+production action, main/PR/merge/release or downstream feature was performed.
+
+### Independent feature review and implicit-remount correction
+
+`gpt-6.1-sol` reviewer `deleg_3ba67781/task-0` inspected exact staged feature
+SHA-256 `c25fbdd74ed578532c3d509efaf5c7497365a9b8091b41aa075244054524a0e5`
+and returned REQUIRED CHANGES, not READY. Its two transformed regressions found
+the same concrete blocker: a direct forced remount and actual vanilla Husk
+seed 58 could change rider position during commit, after clearance had passed.
+The prior explicit-removeVehicle regression did not exercise that implicit path.
+
+The permanent actual-Husk regression was added before the fix. Parent execution
+`implicit-remount-red.log/.xml` reproduced exactly one failure among 37 tests:
+the checked rider Y was 9.8125 and the committed Y was 8.0 (X/Z also changed).
+Pinned Entity.startRiding invokes LivingEntity.stopRiding before a vehicle
+switch; that method computes dismount positioning. Preparation had updated only
+projected membership, leaving that positional effect until replay.
+
+The bounded fix calls the candidate's original stopRiding during preparation.
+Its candidate-local position/pose logic executes once, while removeVehicle
+projects membership and queues the external removal before the new mount.
+Replay therefore has no old vehicle to implicitly dismount after clearance.
+There is no post-commit position reset, re-finalization or generic rollback.
+
+`./gradlew clean build --console=plain` (`review-fix-build.log`) exited 0:
+37 Minecraft tests and 21 JUnit tests, zero failures/errors/skipped. This includes
+the permanent actual Husk seed-58 regression comparing both position and bbox
+before/after commit and the first actual riding-position update. The actual-JAR
+probe (`review-fix-artifact-smoke.log`) also exited 0, startup/save/stop/client
+isolation passed; corrected JAR SHA-256 is
+`5a80dfbffac6b1edd7988534582a9e01a4bac8210acc0201446e30335c426ee2`.
+The feature still needs independent exact-staged re-review of this correction
+before commit/push and downstream acceptance. The first feature review is not
+being reported as READY. Whole-branch/client/release validation remains separate.

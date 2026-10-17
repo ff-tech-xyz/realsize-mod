@@ -52,7 +52,21 @@ class ScaffoldTest {
                     assertEquals(69, bytes.readUnsignedShort(), "Entrypoint must target Java 25");
                 }
             }
-            assertFalse(mod.has("mixins"), "No unimplemented culling mixin may be declared");
+            assertEquals(1, mod.getAsJsonArray("mixins").size(), "Only approved common spawn adapters are implemented");
+            String config = mod.getAsJsonArray("mixins").get(0).getAsString();
+            assertEquals("realsize.spawn.mixins.json", config, "Unimplemented client culling must remain undeclared");
+            JsonObject mixins;
+            try (var reader = new InputStreamReader(jar.getInputStream(jar.getEntry(config)), StandardCharsets.UTF_8)) {
+                mixins = JsonParser.parseReader(reader).getAsJsonObject();
+            }
+            assertTrue(mixins.get("required").getAsBoolean(), "Spawn integration must fail closed");
+            assertEquals(1, mixins.getAsJsonObject("injectors").get("defaultRequire").getAsInt());
+            assertFalse(mixins.has("client"));
+            for (var adapter : mixins.getAsJsonArray("mixins")) {
+                assertNotNull(jar.getEntry(mixins.get("package").getAsString().replace('.', '/') + "/"
+                        + adapter.getAsString() + ".class"), "Every declared adapter must ship");
+            }
+            assertNotNull(jar.getEntry(mixins.get("plugin").getAsString().replace('.', '/') + ".class"));
             assertFalse(mod.getAsJsonObject("entrypoints").has("fabric-gametest"));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().contains("ScaffoldGameTests")),
                     "Development tests must not ship in the production JAR");
