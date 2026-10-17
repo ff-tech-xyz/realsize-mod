@@ -12,7 +12,6 @@
       "xyz.pyrehaven.realsize.ResolvedSettingsGameTests",
       "xyz.pyrehaven.realsize.SizingGameTests",
       "xyz.pyrehaven.realsize.SpawnGameTests",
-      "xyz.pyrehaven.realsize.SpawnPreparationGameTests",
       "xyz.pyrehaven.realsize.ChunkSpawnGameTests",
       "xyz.pyrehaven.realsize.SpawnDimensionGameTests"
     ]

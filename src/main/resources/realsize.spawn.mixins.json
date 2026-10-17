@@ -2,9 +2,6 @@
   "required": true,
   "package": "xyz.pyrehaven.realsize.mixin",
   "compatibilityLevel": "JAVA_25",
-  "plugin": "xyz.pyrehaven.realsize.mixin.SpawnPlacementPlugin",
-  "mixins": ["SpawnUtilMixin", "NaturalSpawnerMixin", "AgeableSpawnMixin",
-    "SpawnMountAccess", "SpawnEffectMixin", "SpawnConstructionMixin", "ChickenSpawnMixin", "ZombieSpawnMixin",
-    "FishSpawnMixin", "HuskSpawnMixin"],
+  "mixins": ["SpawnUtilMixin", "NaturalSpawnerMixin"],
   "injectors": {"defaultRequire": 1}
 }

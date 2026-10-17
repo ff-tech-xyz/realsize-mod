@@ -32,6 +32,19 @@ public final class EntitySizing {
         return settings.config();
     }
 
+    /** Scale only vanilla's existing adult spawn check; finalization stays vanilla. */
+    public net.minecraft.world.phys.AABB spawnBounds(net.minecraft.world.entity.EntityType<?> type,
+            net.minecraft.world.phys.AABB original) {
+        double multiplier = policy.multiplier(settings.scale(type), type.getCategory() == MobCategory.MONSTER, 1.0);
+        if (multiplier == 1.0) return original;
+        double centerX = (original.minX + original.maxX) * 0.5;
+        double centerZ = (original.minZ + original.maxZ) * 0.5;
+        double halfX = original.getXsize() * multiplier * 0.5;
+        double halfZ = original.getZsize() * multiplier * 0.5;
+        return new net.minecraft.world.phys.AABB(centerX - halfX, original.minY, centerZ - halfZ,
+                centerX + halfX, original.minY + original.getYsize() * multiplier, centerZ + halfZ);
+    }
+
     public void onLoad(Entity entity) {
         if (entity instanceof LivingEntity living) {
             // pack exposes every instantiated attribute, including non-syncable legacy data.

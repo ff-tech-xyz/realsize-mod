@@ -73,8 +73,7 @@ public final class SpawnDimensionGameTests {
             loaded.setUUID(java.util.UUID.randomUUID());
             level.addFreshEntity(loaded);
             mobs.add(loaded);
-            helper.assertTrue(!loaded.isRemoved() && loaded.position().equals(summoned.position())
-                    && xyz.pyrehaven.realsize.sizing.SpawnPreparation.current() == null,
+            helper.assertTrue(!loaded.isRemoved() && loaded.position().equals(summoned.position()),
                     "Saved entity load must bypass placement scope without moving or removing it");
             helper.succeed();
         } finally {
@@ -116,65 +115,4 @@ public final class SpawnDimensionGameTests {
         }
     }
 
-    @GameTest(setupTicks = 5100)
-    public void actualSpawnUtilUsesBabyIntrinsicAndForeignFinalDimensions(GameTestHelper helper) throws Exception {
-        var file = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
-        byte[] original = Files.readAllBytes(file);
-        var target = helper.absolutePos(new BlockPos(4, 2, 4));
-        var level = helper.getLevel();
-        var sizes = new java.util.HashSet<Integer>();
-        int accepted = 0;
-        int rejected = 0;
-        try {
-            SpawnGameTests.reload(helper, Map.of("minecraft:chicken", 1.45, "minecraft:slime", 1.45));
-            for (var type : java.util.List.of(EntityTypes.CHICKEN, EntityTypes.SLIME)) {
-                for (int seed = 43000; seed < 43064; seed++) {
-                    SpawnGameTests.room(helper, target, 2);
-                    // Animal walk-target rules require grass, independently of clearance.
-                    level.setBlockAndUpdate(target.below(), net.minecraft.world.level.block.Blocks.GRASS_BLOCK.defaultBlockState());
-                    NaturalSpawnProbe.reset();
-                    final int entitySeed = seed;
-                    NaturalSpawnProbe.constructedHook = mob -> mob.getRandom().setSeed(entitySeed);
-                    NaturalSpawnProbe.createdHook = mob -> {
-                        NaturalSpawnProbe.dimensionMultiplier = 1.2f;
-                        if (mob instanceof net.minecraft.world.entity.AgeableMob ageable) ageable.setBaby(true);
-                        mob.getAttribute(Attributes.SCALE).addTransientModifier(new AttributeModifier(
-                                Identifier.parse("spawn-test:late-scale"), 0.2, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
-                    };
-                    level.getRandom().setSeed(seed);
-                    var result = SpawnUtil.trySpawnMob(type, EntitySpawnReason.MOB_SUMMONED, level,
-                            target, 1, 0, 0, SpawnUtil.Strategy.ON_TOP_OF_COLLIDER, false);
-                    helper.assertTrue(NaturalSpawnProbe.created.size() == 1, "Actual SpawnUtil must finalize exactly one candidate");
-                    var mob = NaturalSpawnProbe.created.getFirst();
-                    if (mob instanceof net.minecraft.world.entity.monster.cubemob.Slime slime) sizes.add(slime.getSize());
-                    var finalBox = mob.getDimensions(mob.getPose()).makeBoundingBox(mob.position());
-                    boolean clear = level.noCollision(mob, finalBox);
-                    helper.assertTrue(result.isPresent() == clear, "Placement result must reflect actual finalized hitbox, seed " + seed
-                            + " type=" + type + " result=" + result.isPresent() + " clear=" + clear + " box=" + mob.getBoundingBox()
-                            + " final=" + finalBox + " obstruction=" + mob.checkSpawnObstruction(level));
-                    helper.assertTrue(Math.abs(mob.getBoundingBox().getYsize() - finalBox.getYsize()) < 1e-6,
-                            "Gate must refresh actual bbox after foreign final attributes");
-                    helper.assertTrue(mob.getAttribute(Attributes.SCALE).hasModifier(Identifier.parse("spawn-test:late-scale")),
-                            "Foreign final modifier must survive");
-                    if (clear) {
-                        accepted++;
-                        helper.assertTrue(level.getEntity(mob.getUUID()) == mob && mob.getX() == target.getX() + 0.5
-                                && mob.getY() == target.getY() && mob.getZ() == target.getZ() + 0.5,
-                                "Accepted registration/position must match vanilla");
-                        if (mob.getType() == EntityTypes.CHICKEN) helper.assertTrue(mob.isBaby(), "Baby choice must survive");
-                        mob.discard();
-                    } else {
-                        rejected++;
-                        helper.assertTrue(mob.isRemoved() && level.getEntity(mob.getUUID()) == null, "Rejected final size must not register");
-                    }
-                }
-            }
-            helper.assertTrue(sizes.size() >= 3 && accepted > 0 && rejected > 0, "Seed range must exercise intrinsic sizes and both placement outcomes");
-            helper.succeed();
-        } finally {
-            NaturalSpawnProbe.reset();
-            Files.write(file, original);
-            SpawnGameTests.executeReload(helper);
-        }
-    }
 }

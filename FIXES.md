@@ -1,6 +1,8 @@
 # RealSize v2 fixes and acceptance
 
-Status: early-check simplification in progress after Elijah's scope correction.
+Status: early-check simplification implemented and locally verified after
+Elijah's scope correction. Independent review/hosted CI and player-driven
+acceptance of the corrected branch are not claimed.
 Required player-driven gameplay is not accepted. Autonomous validation/review
 workers were stopped and their pending cards archived at his request; work now
 continues directly in thread `1561148464233054261`. README and ARCHITECTURE describe the final
@@ -71,7 +73,7 @@ in the audit is not present in this checkout; ARCHITECTURE is the active contrac
   reconcile growth through the sizing owner. Test baby/adult chickens and other
   ageable mobs, growth, chunk reload, and foreign scale coexistence. Prove neutral
   and absent rules leave vanilla baby sizing untouched.
-- [ ] **RS-08 — Early adult spawn clearance.** Scale the bounds in vanilla's
+- [x] **RS-08 — Early adult spawn clearance.** Scale the bounds in vanilla's
   existing early type collision checks using the configured adult rule. Preserve
   original retries, finalization and SpawnUtil's collision toggle. No later
   baby/variant/rider fit gate, ASM patch or finalization containment. Verify
@@ -1816,3 +1818,69 @@ passes again. The correction's independent review/commit and new hosted run
 are pending at this checkpoint; production classes and the locally tested
 JAR remain unchanged. Required manual gameplay is still unavailable and the
 card is not complete.
+
+## Early-check correction — 2026-10-17
+
+Elijah's messages `1561148464233054261` and `1561151136940032071` replace the
+finalized-spawn contract above. Prior finalization/containment evidence is
+historical, not a requirement to restore those mechanics. The active validation
+worker was reclaimed and its PID verified absent; its already-pushed checkpoint
+was retained. Validation, correction and final-review cards were archived so
+none can restart automatically. The correction was implemented directly here,
+without new implementation or reviewer agents. No review receipt was invented.
+
+Vanilla's existing `EntityType.getSpawnAABB(DDD)` checks in ticking spawns,
+chunk generation and SpawnUtil now use configured adult scale from the existing
+`EntitySizing`/`SizingPolicy` owner. There is no new collision check: SpawnUtil's
+false toggle still bypasses its type-bounds check, later vanilla obstruction
+checks remain unchanged, and finalization/group/rider/variant effects execute
+normally. A smaller configured type box does not promise to bypass a species'
+other vanilla checks. Entity attributes still reconcile through normal load,
+growth and reload; this change adds no forced candidate-dimension refresh.
+
+Removed eleven obsolete production sources: the ASM plugin, SpawnPreparation,
+SpawnSizing and eight finalization/construction/effect/mount adapters. Only
+NaturalSpawnerMixin and SpawnUtilMixin remain in the common mixin inventory;
+client rendering is untouched. Superseded finalization-precision tests and
+their unused observers were removed, not retained as conflicting acceptance.
+The source-only diff removes a net 530 production lines.
+
+Observed execution (logs under `runtime/realsize-mod/evidence/early-clearance`):
+
+- RED: `./gradlew runGameTest --console=plain`, exit 1. The new early-order
+  assertion fails against the old implementation: `Scaled adult clearance must
+  reject at vanilla's early check, before any finalization` (`red.log`).
+- The first simplified run exposed obsolete test assumptions: the extra
+  predicate is downstream of the early type check, and fresh bbox attributes
+  update on the normal entity tick. Tests now assert the actual vanilla order
+  and tick the accepted golem rather than imposing a production refresh.
+- The initial smaller-golem fixture incorrectly expected a two-block roof to
+  bypass the golem's additional vanilla obstruction rule. That rule stays
+  unchanged; the fixture checks scaled type bounds and otherwise valid vanilla
+  placement instead. No species patch was added to satisfy the fixture.
+- `./gradlew clean build --console=plain`, exit 0, **BUILD SUCCESSFUL in 37s**:
+  31 Minecraft cases and 21 JUnit cases, no failures/errors/skips. Includes early
+  collision rejection before finalization on ticking/chunkgen paths, real golem
+  retry/success, absent/neutral/smaller rules, caller-disabled collision checks,
+  and acceptance of a candidate obstructed by a late composed finalizer without
+  a new post-finalization gate (`build-final.log`).
+- `./gradlew -I ../../runtime/realsize-mod/evidence/early-clearance/packaged-tests.gradle
+  runGameTest --console=plain`, exit 0, 31/31 actual-JAR Minecraft cases. Main and
+  client production output directories were excluded; class-load provenance
+  proves RealSizeMod/EntitySizing came from `build/libs/realsize-1.2.0.jar`
+  (`packaged-tests.log`, `packaged-classes.log`).
+- `python3 scripts/server-smoke.py`, exit 0: packaged dedicated server initialized
+  RealSize, reached Done, saved and stopped normally; no Minecraft/RealSize
+  client classes loaded (`server-smoke.log`).
+- `xvfb-run -a ./gradlew runClientGameTest --console=plain`, exit 0: actual-JAR
+  integrated and dedicated TCP PASS and tracking PASS markers, unchanged local
+  toggle, size/render and vanilla-tracking behavior (`client.log`).
+- Packaged inventory: exactly two common spawn mixins, no plugin declaration,
+  and none of the eleven removed production classes. JAR SHA-256:
+  `5ad2fc7a6db4ba086368eb776c35d6369a67268cee477689ec7da2210847a968`.
+- `git diff --check` passes. No autonomous RealSize workers remain running.
+
+This is local automated acceptance of the scoped correction, not whole-branch
+independent review, hosted CI success, manual player acceptance or release.
+The existing LAN preview and immutable delivered preview were not replaced;
+no main, merge, public metadata, release or production changes were made.

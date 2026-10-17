@@ -2,6 +2,6 @@
   "required": true,
   "package": "xyz.pyrehaven.realsize.testmixin",
   "compatibilityLevel": "JAVA_25",
-  "mixins": ["NaturalSpawnProbeMixin", "OuterSpawnProbeMixin", "SpawnEventProbeMixin", "CreatedSpawnProbeMixin", "CreatedSpawnProbeMixin$Dimensions"],
+  "mixins": ["NaturalSpawnProbeMixin", "OuterSpawnProbeMixin"],
   "injectors": {"defaultRequire": 1}
 }

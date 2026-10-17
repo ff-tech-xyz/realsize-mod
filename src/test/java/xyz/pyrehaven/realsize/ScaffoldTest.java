@@ -82,7 +82,8 @@ class ScaffoldTest {
                 assertNotNull(jar.getEntry(mixins.get("package").getAsString().replace('.', '/') + "/"
                         + adapter.getAsString() + ".class"), "Every declared adapter must ship");
             }
-            assertNotNull(jar.getEntry(mixins.get("plugin").getAsString().replace('.', '/') + ".class"));
+            assertFalse(mixins.has("plugin"), "Early spawn checks need no bytecode plugin");
+            assertEquals(2, mixins.getAsJsonArray("mixins").size(), "Only existing spawn-check adapters ship");
             assertFalse(mod.getAsJsonObject("entrypoints").has("fabric-gametest"));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().contains("ScaffoldGameTests")),
                     "Development tests must not ship in the production JAR");

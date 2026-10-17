@@ -21,46 +21,8 @@ public final class SpawnGameTests implements net.fabricmc.api.ModInitializer {
         net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> registered.add(entity));
     }
 
-    @GameTest(setupTicks = 2700)
-    public void rejectedZombieCandidatesLeaveExistingChickenAndWorldUnchanged(GameTestHelper helper) throws Exception {
-        var file = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
-        byte[] original = Files.readAllBytes(file);
-        var level = helper.getLevel();
-        var target = helper.absolutePos(new BlockPos(4, 2, 4));
-        room(helper, target, 2);
-        var existing = EntityTypes.CHICKEN.create(level, EntitySpawnReason.COMMAND);
-        existing.snapTo(target.getX() + 1.5, target.getY(), target.getZ() + 0.5);
-        existing.setNoAi(true);
-        existing.setPersistenceRequired();
-        level.addFreshEntity(existing);
-        var before = existing.position();
-        registered.clear();
-        try {
-            var config = new RealSizeConfig(2, 1.2, 1.2, 1.45, true, 1.49, true, Map.of("minecraft:zombie", 1.45));
-            Files.writeString(file, new GsonBuilder().create().toJson(config));
-            executeReload(helper);
-            for (int seed = 12000; seed < 16000; seed++) {
-                level.getRandom().setSeed(seed);
-                var result = SpawnUtil.trySpawnMob(EntityTypes.ZOMBIE, EntitySpawnReason.MOB_SUMMONED,
-                        level, target, 1, 0, 0, SpawnUtil.Strategy.ON_TOP_OF_COLLIDER, false);
-                helper.assertTrue(result.isEmpty(), "Every adult/baby candidate must reject this valid custom-floor roof");
-                helper.assertTrue(!existing.isChickenJockey() && existing.getPassengers().isEmpty()
-                        && existing.position().equals(before) && !existing.isRemoved(),
-                        "Rejected zombie must not change existing chicken at seed " + seed);
-                helper.assertTrue(registered.isEmpty(), "Rejected zombie must not register orphan companions at seed " + seed);
-            }
-            helper.succeed();
-        } finally {
-            registered.forEach(net.minecraft.world.entity.Entity::discard);
-            registered.clear();
-            existing.discard();
-            Files.write(file, original);
-            executeReload(helper);
-        }
-    }
-
     @GameTest(setupTicks = 2400, maxTicks = 400)
-    public void naturalLoopRejectsFinalizedCollisionAndStillSpawnsInOpenSpace(GameTestHelper helper) throws Exception {
+    public void naturalLoopChecksAdultSizeBeforeFinalization(GameTestHelper helper) throws Exception {
         var level = helper.getLevel();
         var target = helper.absolutePos(new BlockPos(-96, 6, -96));
         var player = helper.makeMockServerPlayerInLevel();
@@ -117,14 +79,11 @@ public final class SpawnGameTests implements net.fabricmc.api.ModInitializer {
                                 }
                             });
                 }
-                helper.assertTrue(candidates[0] > 0, "Real natural loop must reach candidate predicates");
                 if (phase == 0) {
+                    helper.assertTrue(candidates[0] == 0, "Adult collision rejection must precede vanilla's extra predicate");
                     helper.assertTrue(successes[0] == 0, "Short space must have no accepted enlarged mooshrooms");
-                    helper.assertTrue(!NaturalSpawnProbe.finalized.isEmpty(), "Probe must observe the actual original finalization site");
-                    for (var candidate : NaturalSpawnProbe.finalized) {
-                        helper.assertTrue(((net.minecraft.world.entity.AgeableMob.AgeableMobGroupData) candidate.group()).getGroupSize() == 0,
-                                "Rejected natural candidates must not increment their shared group");
-                    }
+                    helper.assertTrue(NaturalSpawnProbe.finalized.isEmpty(),
+                            "Scaled adult clearance must reject at vanilla's early check, before any finalization");
                 }
             }
             helper.assertTrue(successes[0] > 0, "Open natural area must actually produce successes after failed candidates");
@@ -179,7 +138,7 @@ public final class SpawnGameTests implements net.fabricmc.api.ModInitializer {
             reload(helper, Map.of("minecraft:iron_golem", 1.45));
             room(helper, target, 3);
             var rejected = SpawnUtil.trySpawnMob(EntityTypes.IRON_GOLEM, EntitySpawnReason.MOB_SUMMONED,
-                    level, target, 2, 0, 0, SpawnUtil.Strategy.LEGACY_IRON_GOLEM, false);
+                    level, target, 2, 0, 0, SpawnUtil.Strategy.LEGACY_IRON_GOLEM, true);
             helper.assertTrue(rejected.isEmpty(), "Enlarged golem must reject three-block roof before reporting success");
             int[] candidates = {0};
             SpawnUtil.Strategy retry = (world, below, state, above, aboveState) -> {
@@ -188,13 +147,55 @@ public final class SpawnGameTests implements net.fabricmc.api.ModInitializer {
                 return true;
             };
             var accepted = SpawnUtil.trySpawnMob(EntityTypes.IRON_GOLEM, EntitySpawnReason.MOB_SUMMONED,
-                    level, target, 3, 0, 0, retry, false);
+                    level, target, 3, 0, 0, retry, true);
             helper.assertTrue(accepted.isPresent() && candidates[0] == 2, "Failed candidate must retry, then accept adequate space");
             var golem = accepted.orElseThrow();
+            golem.setNoAi(true);
+            golem.setNoGravity(true);
+            golem.tick(); // Vanilla consumes the load-time scale attribute dirt on the entity tick.
             helper.assertTrue(level.getEntity(golem.getUUID()) == golem
                     && Math.abs(golem.getBoundingBox().getYsize() - 3.9150002002716064) < 0.00001
                     && level.noCollision(golem, golem.getBoundingBox()), "Success must register a final-sized clear golem");
             golem.discard();
+            helper.succeed();
+        } finally {
+            Files.write(file, original);
+            executeReload(helper);
+        }
+    }
+
+    @GameTest(setupTicks = 2800)
+    public void spawnUtilPreservesNeutralShrinkingAndDisabledCollisionChecks(GameTestHelper helper) throws Exception {
+        var file = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
+        byte[] original = Files.readAllBytes(file);
+        var target = helper.absolutePos(new BlockPos(4, 2, 4));
+        var level = helper.getLevel();
+        try {
+            for (double scale : new double[]{1.0, 0.5, 1.45}) {
+                reload(helper, Map.of("minecraft:iron_golem", scale));
+                room(helper, target, 3);
+                var vanillaBounds = EntityTypes.IRON_GOLEM.getSpawnAABB(target.getX() + 0.5, target.getY(), target.getZ() + 0.5);
+                var configuredBounds = RealSizeMod.currentSizing().spawnBounds(EntityTypes.IRON_GOLEM, vanillaBounds);
+                helper.assertTrue(Math.abs(configuredBounds.getYsize() - vanillaBounds.getYsize() * scale) < 1e-5,
+                        "Existing sizing owner must supply the configured adult bounds");
+                var checked = SpawnUtil.trySpawnMob(EntityTypes.IRON_GOLEM, EntitySpawnReason.MOB_SUMMONED,
+                        level, target, 1, 0, 0, SpawnUtil.Strategy.LEGACY_IRON_GOLEM, true);
+                helper.assertTrue(checked.isPresent() == (scale != 1.45),
+                        "Existing type collision check must use adult rule " + scale);
+                checked.ifPresent(net.minecraft.world.entity.Entity::discard);
+                if (scale == 1.45) {
+                    var unchecked = SpawnUtil.trySpawnMob(EntityTypes.IRON_GOLEM, EntitySpawnReason.MOB_SUMMONED,
+                            level, target, 1, 0, 0, SpawnUtil.Strategy.LEGACY_IRON_GOLEM, false);
+                    helper.assertTrue(unchecked.isPresent(), "Disabled vanilla collision check must stay disabled");
+                    unchecked.ifPresent(net.minecraft.world.entity.Entity::discard);
+                }
+            }
+            reload(helper, Map.of());
+            room(helper, target, 3);
+            var absent = SpawnUtil.trySpawnMob(EntityTypes.IRON_GOLEM, EntitySpawnReason.MOB_SUMMONED,
+                    level, target, 1, 0, 0, SpawnUtil.Strategy.LEGACY_IRON_GOLEM, true);
+            helper.assertTrue(absent.isPresent(), "Absent rule must preserve vanilla adult check");
+            absent.ifPresent(net.minecraft.world.entity.Entity::discard);
             helper.succeed();
         } finally {
             Files.write(file, original);
