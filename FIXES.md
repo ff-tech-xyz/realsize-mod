@@ -20,8 +20,8 @@ Transactional command/tag reload and changed-config chunk loading are implemente
 and tested. Proportional movement and actual server collision courses are also
 implemented and tested. Finalized natural-spawn clearance is implemented,
 independently reviewed and committed. Optional client culling is implemented
-and exercised below; its independent feature acceptance and commit are pending
-at the client candidate checkpoint, not inferred from the earlier spawn work.
+and independently accepted, committed and pushed below. Wider final-validation
+gates remain open; the client result is not inferred from earlier spawn work.
 The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
 
@@ -1612,3 +1612,27 @@ are pending at this candidate checkpoint. RS-01/RS-11 implementation/automated
 integration gates are exercised; wider visual/manual gameplay, combat, world/
 uninstall migration, profiling, CI and whole-branch review remain on downstream
 final validation. No release, PR, merge, production mutation or public deployment.
+
+### Optional client feature accepted and pushed
+
+Independent `gpt-6.1-sol` reviewer `deleg_372fe706/task-0` returned READY for exact
+staged feature SHA-256
+`9c59296b0c0191f4503f3d51e706c44f00c0909b7c19997eccc1f299ade39ef9`.
+It independently recompiled production client classes byte-identically to the
+JAR, reran both packaged client modes/tracking and the dedicated packaged boot,
+and verified 37 server/21 JUnit passes. The parent read the actual reviewer
+client/server logs, rechecked unchanged staged bytes, parsed 37 GameTest cases
+with no failures, and checked Java `/proc` cwd/file descriptors: no references
+under `runtime/realsize-mod/run` remained. Review evidence lives in
+`evidence/client/review/`; transcript is `deleg_372fe706/task-0.log`.
+
+Committed exactly that reviewed index as
+`bdb74e891c6c5fd3dfe2bdc16c98b3f8fb218fea`
+(`Correct tiny mob distance culling on the optional client`). The physical hook
+printed `anti-slop: architecture conformance passed`. Push exited 0 and
+`git ls-remote origin refs/heads/update/V.1.2.0` read back that exact SHA; the
+checkout was clean. This documentation-only closeout changes no tested source
+or artifact. RS-01/RS-11 feature work is complete; the approximate 12-block
+visual claim stays unverified. Final-validation card `t_945dc696` remains
+responsible for the wider open gates and whole-branch review. No runtime server
+or client is intentionally left running, and no next-card work was implemented.
