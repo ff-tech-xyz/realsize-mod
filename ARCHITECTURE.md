@@ -100,6 +100,7 @@ realsize-mod/
         │   ├── SpawnPreparationGameTests.java
         │   ├── ChunkSpawnGameTests.java
         │   ├── SpawnDimensionGameTests.java
+        │   ├── ClientRenderGameTests.java
         │   ├── NaturalSpawnProbe.java
         │   └── testmixin/
         │       ├── NaturalSpawnProbeMixin.java
@@ -281,6 +282,15 @@ for shrinking entities, without shortening vanilla distance for enlarged ones.
 It preserves frustum/visibility checks and vanilla server tracking. It operates
 on the entity's actual scale, including when its client has no matching server
 configuration. The client's local toggle disables the correction cleanly.
+`RealSizeClient` reads the existing local config once during client startup;
+`/realsize-client reload` validates and replaces only its local rendering flag.
+It neither resolves entity rules nor changes the integrated/server sizing snapshot.
+Invalid local reloads retain the previous flag. The distance adapter adds an
+unscaled bounding-box threshold only for living entities whose actual SCALE is
+below one, preserving a successful vanilla result and the existing view scale.
+No rendering call reads the config file. Client GameTests exercise transformed
+entities through real integrated and dedicated connections; their entrypoint is
+development-only and is never packaged in the production JAR.
 
 Supported acceptance modes are multiplayer with RealSize on server and client,
 and single-player with RealSize on the client and its integrated server. With
