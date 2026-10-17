@@ -1653,7 +1653,7 @@ The checked-in smoke probe now excludes production source outputs and boots
 `runClientGameTest` also excludes production source outputs, explicitly depends
 on packaging and development test compilation, and records class provenance.
 The CI workflow uses SHA-pinned checkout/setup-java/upload-artifact actions,
-Temurin `25.0.1+8`, the checksum-pinned Gradle wrapper and the existing exact
+initial Temurin pin `25.0.1+8` (corrected below), the checksum-pinned Gradle wrapper and the existing exact
 26.3/Fabric build pins. It runs the nonempty suites, packaged server smoke and
 Xvfb client modes, verifies that the exercised JAR is unchanged, and retains
 that artifact with reports. A hosted CI pass is **pending**, not inferred from
@@ -1775,3 +1775,40 @@ at this checkpoint. Open RS boxes are not blanket-closed by these automated
 passes. Full validation must remain blocked while its required manual gameplay
 gate is unavailable; no completion, user test-server launch or JAR delivery is
 claimed by this candidate evidence.
+
+### Independent code acceptance, pushed checkpoint and hosted CI pin correction
+
+`gpt-6.1-sol` reviewer `deleg_942aac17/task-0` returned **READY-for-code**, not
+complete-task acceptance, for exact staged SHA-256
+`c575c6e98f71393b73037a379fee30e4375570dfdc801c1f709d9d7484e5bab0`
+and whole `origin/main` to index SHA-256
+`89913833ec6599dc90bff0093a038f1b16cf6220aad1bc365543a32da721001d`.
+Base main was freshly fetched `c5793d43a9be75b02e3c26dc265141998097493b`.
+The review explicitly retains the manual-gameplay blocker. It independently
+compiled production classes byte-identically to the JAR, ran 21 JUnit cases and
+39 actual-JAR Minecraft cases. The parent parsed the review's actual XML/log,
+confirmed 39 cases with no failures/errors/skips and packaged server class
+provenance, then rechecked both unchanged reviewed diff hashes.
+
+The genuine commit-scope receipt was recorded; the physical hook printed
+`anti-slop: architecture conformance passed`. Commit
+`c818a25ac6d6276c120ba048bc7aebea38c62c4b`
+(`Validate packaged runtimes and add behavioral CI`) was pushed successfully.
+`git ls-remote origin refs/heads/update/V.1.2.0` read back that exact SHA and
+the working tree was clean. Committed whole-branch diff matched the reviewed
+main-to-index hash exactly. Review artifacts are under
+`evidence/final/review/independent-oymug3q3/`; the real transcript is
+`deleg_942aac17/task-0.log` in the delegation directory.
+
+`gh run watch 39076490202 --repo ff-tech-xyz/realsize-mod --exit-status --interval 15`
+exited **1**. `gh run view 39076490202 --repo ff-tech-xyz/realsize-mod --log-failed`
+showed failure **before build/tests**: setup-java could not satisfy SemVer
+`25.0.1+8`; its actual offered spelling was `25.0.1+8.0.LTS` (and included
+`25.0.4+7.0.LTS`). No artifact existed, so fail-closed artifact retention also
+reported no files. No skipped suite was called passing. This correction pins
+the exact offered `25.0.4+7.0.LTS`, retaining Java 25 and all source/game/dependency
+pins, rather than dropping the pin or suppressing CI failure. `actionlint`
+passes again. The correction's independent review/commit and new hosted run
+are pending at this checkpoint; production classes and the locally tested
+JAR remain unchanged. Required manual gameplay is still unavailable and the
+card is not complete.
