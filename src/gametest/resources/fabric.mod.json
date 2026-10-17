@@ -9,6 +9,7 @@
     "main": ["xyz.pyrehaven.realsize.SizingGameTests", "xyz.pyrehaven.realsize.SpawnGameTests"],
     "fabric-gametest": [
       "xyz.pyrehaven.realsize.ScaffoldGameTests",
+      "xyz.pyrehaven.realsize.LifecycleGameTests",
       "xyz.pyrehaven.realsize.ResolvedSettingsGameTests",
       "xyz.pyrehaven.realsize.SizingGameTests",
       "xyz.pyrehaven.realsize.SpawnGameTests",

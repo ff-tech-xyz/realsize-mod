@@ -376,7 +376,8 @@ public final class SizingGameTests implements ModInitializer {
         var file = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
         var fixture = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true,
                 Map.of("minecraft:bee", 0.25, "minecraft:chicken", 0.25,
-                        "minecraft:zombie", 0.1, "minecraft:cow", 1.0));
+                        "minecraft:zombie", 0.1, "minecraft:cow", 1.0,
+                        "minecraft:piglin", 0.1, "minecraft:zoglin", 0.1));
         try {
             Files.createDirectories(file.getParent());
             Files.writeString(file, new GsonBuilder().setPrettyPrinting().create().toJson(fixture) + "\n");
@@ -400,7 +401,7 @@ public final class SizingGameTests implements ModInitializer {
         helper.startSequence().thenWaitUntil(() -> {
             helper.assertTrue(!chicken.isBaby(), "Vanilla ticking must grow the baby");
             helper.assertTrue(Math.abs(chicken.getScale() - 0.25) < 0.00001,
-                    "Registered tick reconciliation must update through same owner after natural growth");
+                    "Registered growth callback must update through same owner after natural growth");
         }).thenExecute(() -> adultTick[0] = chicken.tickCount).thenWaitUntil(() -> {
             helper.assertTrue(chicken.tickCount > adultTick[0], "Adult must tick to consume queued attribute dirt");
         }).thenExecute(() -> {
@@ -548,8 +549,8 @@ public final class SizingGameTests implements ModInitializer {
             owner.reconcile(golem);
             owner.onLoad(golem);
         }
-        helper.assertTrue(step.getModifier(id) == owned && step.getBaseValue() == base,
-                "Repeated reconciliation must exclude own boost and preserve modifier identity/base");
+        helper.assertTrue(step.getModifier(id).equals(owned) && step.getBaseValue() == base,
+                "Repeated lifecycle reconciliation must preserve effective boost and base");
         var output = TagValueOutput.createWithContext(ProblemReporter.DISCARDING, helper.getLevel().registryAccess());
         helper.assertTrue(golem.save(output), "Movement fixture must serialize");
         helper.assertTrue(savedAttributes(helper, output.buildResult()).stream().flatMap(a -> a.modifiers().stream())

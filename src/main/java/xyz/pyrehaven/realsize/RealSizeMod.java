@@ -6,7 +6,6 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.commands.Commands;
@@ -55,13 +54,6 @@ public final class RealSizeMod implements ModInitializer {
             }
         });
         ServerEntityEvents.ENTITY_LOAD.register((entity, level) -> sizing.onLoad(entity));
-        // Fabric has no growth callback. Reconcile after vanilla age changes on the server,
-        // without a second per-entity age cache or a server mixin.
-        ServerTickEvents.END_LEVEL_TICK.register(level -> {
-            for (var entity : level.getAllEntities()) {
-                sizing.reconcile(entity);
-            }
-        });
         ServerLifecycleEvents.SERVER_STOPPED.register(server -> sizing = null);
         LOGGER.info("RealSize initialized; transient entity sizing lifecycle registered.");
     }

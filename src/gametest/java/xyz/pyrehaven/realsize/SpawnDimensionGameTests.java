@@ -3,7 +3,6 @@ package xyz.pyrehaven.realsize;
 import java.nio.file.Files;
 import java.util.Map;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
-import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.BlockPos;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -84,7 +83,7 @@ public final class SpawnDimensionGameTests {
     }
 
     @GameTest(setupTicks = 4800)
-    public void queuedGrowthAttributesRefreshOnEntityTickNotReconciliation(GameTestHelper helper) throws Exception {
+    public void growthAttributesRefreshWithinTheEntityTick(GameTestHelper helper) throws Exception {
         var file = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
         byte[] original = Files.readAllBytes(file);
         var chicken = EntityTypes.CHICKEN.create(helper.getLevel(), EntitySpawnReason.COMMAND);
@@ -97,16 +96,11 @@ public final class SpawnDimensionGameTests {
             helper.assertTrue(helper.getLevel().addFreshEntity(chicken), "Lifecycle fixture must register");
             chicken.tick();
             helper.assertTrue(!chicken.isBaby(), "One actual entity tick must grow age -1");
-            ServerTickEvents.END_LEVEL_TICK.invoker().onEndTick(helper.getLevel());
-            helper.assertTrue(Math.abs(chicken.getScale() - 0.25) < 1e-6, "Registered reconciliation must update scale");
-            helper.assertTrue(chicken.getAttributes().getAttributesToUpdate().stream()
-                    .anyMatch(a -> a.getAttribute().is(Attributes.SCALE)), "End-level reconciliation queues scale dirt");
-            helper.assertTrue(Math.abs(chicken.getBoundingBox().getXsize() - chicken.getDimensions(chicken.getPose()).width()) > 0.01,
-                    "Immediate bbox is intentionally stale; a fixed server-tick wait cannot assert freshness");
-            chicken.tick();
-            helper.assertTrue(chicken.getAttributes().getAttributesToUpdate().isEmpty(), "Next entity tick consumes queued dirt");
+            helper.assertTrue(Math.abs(chicken.getScale() - 0.25) < 1e-6, "Growth callback must update scale within the entity tick");
+            helper.assertTrue(chicken.getAttributes().getAttributesToUpdate().isEmpty(),
+                    "The same entity tick consumes growth attribute dirt; no end-level repair is needed");
             helper.assertTrue(Math.abs(chicken.getBoundingBox().getXsize() - EntityTypes.CHICKEN.getDimensions().width() * 0.25) < 1e-6,
-                    "Next actual tick refreshes adult collision dimensions deterministically");
+                    "The growth tick refreshes adult collision dimensions deterministically");
             helper.succeed();
         } finally {
             chicken.discard();

@@ -6,7 +6,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobCategory;
-import net.minecraft.world.entity.ai.attributes.AttributeInstance;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.nautilus.AbstractNautilus;
@@ -102,23 +101,18 @@ public final class EntitySizing {
             step.removeModifier(STEP_ID);
             return;
         }
-        double baseline = stepWithoutOwnedModifier(step);
+        step.removeModifier(STEP_ID);
+        double baseline = step.getValue();
         double desired = policy.stepHeight(baseline, living.getScale() * living.getAgeScale(),
                 settings.config().maxStepHeight());
         if (desired == baseline) {
-            step.removeModifier(STEP_ID);
             return;
         }
         // A total multiplier adds exactly the desired effective difference even with
         // foreign ADD_MULTIPLIED_BASE/TOTAL modifiers; a flat ADD_VALUE would not.
         double amount = desired / baseline - 1.0;
-        var current = step.getModifier(STEP_ID);
-        if (current == null || current.amount() != amount
-                || current.operation() != AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL) {
-            step.removeModifier(STEP_ID);
-            step.addTransientModifier(new AttributeModifier(STEP_ID, amount,
-                    AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
-        }
+        step.addTransientModifier(new AttributeModifier(STEP_ID, amount,
+                AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
     }
 
     private static boolean aquatic(LivingEntity living) {
@@ -128,32 +122,5 @@ public final class EntitySizing {
             default -> living instanceof net.minecraft.world.entity.animal.fish.WaterAnimal
                     || living instanceof Guardian || living instanceof AbstractNautilus;
         };
-    }
-
-    private static double stepWithoutOwnedModifier(AttributeInstance step) {
-        if (!step.hasModifier(STEP_ID)) {
-            return step.getValue();
-        }
-        // Use Minecraft's operation order and sanitization, without removing/readding
-        // the live modifier (which would dirty/sync it on every unchanged tick).
-        var modifiers = step.getModifiers();
-        double base = step.getBaseValue();
-        for (var modifier : modifiers) {
-            if (!modifier.id().equals(STEP_ID) && modifier.operation() == AttributeModifier.Operation.ADD_VALUE) {
-                base += modifier.amount();
-            }
-        }
-        double value = base;
-        for (var modifier : modifiers) {
-            if (!modifier.id().equals(STEP_ID) && modifier.operation() == AttributeModifier.Operation.ADD_MULTIPLIED_BASE) {
-                value += base * modifier.amount();
-            }
-        }
-        for (var modifier : modifiers) {
-            if (!modifier.id().equals(STEP_ID) && modifier.operation() == AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL) {
-                value *= 1.0 + modifier.amount();
-            }
-        }
-        return Attributes.STEP_HEIGHT.value().sanitizeValue(value);
     }
 }
