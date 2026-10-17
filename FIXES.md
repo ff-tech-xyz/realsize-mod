@@ -1,7 +1,9 @@
 # RealSize v2 fixes and acceptance
 
-Status: final validation in progress; required player-driven gameplay is not
-accepted. README and ARCHITECTURE describe the final
+Status: early-check simplification in progress after Elijah's scope correction.
+Required player-driven gameplay is not accepted. Autonomous validation/review
+workers were stopped and their pending cards archived at his request; work now
+continues directly in thread `1561148464233054261`. README and ARCHITECTURE describe the final
 product in present tense at Elijah's request; this tracker describes reality.
 The supplied audit concerns the removed legacy implementation. Its exact mob
 visibility distances, allocation rates, and gameplay outcomes are reported
@@ -20,8 +22,9 @@ Transient entity sizing, legacy attribute cleanup, and common server load/growth
 wiring are implemented and exercised against actual mobs and chunk storage.
 Transactional command/tag reload and changed-config chunk loading are implemented
 and tested. Proportional movement and actual server collision courses are also
-implemented and tested. Finalized natural-spawn clearance is implemented,
-independently reviewed and committed. Optional client culling is implemented
+implemented and tested. The previously committed finalized natural-spawn design
+is superseded by Elijah's early-adult-check-only contract. Its historical
+acceptance below does not authorize retaining or restoring its extra checks. Optional client culling is implemented
 and independently accepted, committed and pushed below. Wider final-validation
 gates remain open; the client result is not inferred from earlier spawn work.
 The former FEATURES.md mentioned
@@ -68,10 +71,11 @@ in the audit is not present in this checkout; ARCHITECTURE is the active contrac
   reconcile growth through the sizing owner. Test baby/adult chickens and other
   ageable mobs, growth, chunk reload, and foreign scale coexistence. Prove neutral
   and absent rules leave vanilla baby sizing untouched.
-- [x] **RS-08 — Enlarged spawn clearance.** Verify the 26.3 natural-placement
-  seam and reject collisions using final dimensions. Test a scaled golem in a
-  too-short space and an adequate space. Gate any required server mixin on a
-  documented architecture decision; do not hide it under a second size system.
+- [ ] **RS-08 — Early adult spawn clearance.** Scale the bounds in vanilla's
+  existing early type collision checks using the configured adult rule. Preserve
+  original retries, finalization and SpawnUtil's collision toggle. No later
+  baby/variant/rider fit gate, ASM patch or finalization containment. Verify
+  rejection before finalization, neutral/smaller rules and adequate space.
 - [x] **RS-09 — Build and dev runtime.** Finish the single 26.3 artifact, root
   source set, metadata, and enabled JAR task. Existing tooling groundwork already
   removes old modules/identity mappings; exercise real compile/build/runServer,

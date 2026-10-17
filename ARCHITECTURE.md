@@ -12,12 +12,13 @@ One Fabric project targets Minecraft 26.3 and Java 25. The same JAR provides
 server-owned mob sizing and an optional, isolated client rendering correction.
 Vanilla clients can join. The server has no RealSize tracking hooks or tracking
 mixins, custom networking, or client-required registries. Its only permitted
-server mixins are bounded spawn-placement and candidate-finalization adapters.
-Elijah approved placement in Discord message `1560310593595117589` on 2026-10-15;
-the parent approved the necessary preparation/commit finalization seams on
-2026-10-17 under his delegated engineering authority (`1561085232118104065`). They preserve
-vanilla failed-candidate retries and delegate all sizing mutation to
-`EntitySizing`; they do not veto entity loads or replace server tracking.
+server mixins adapt only the existing early type-bounds checks in `NaturalSpawner`
+and `SpawnUtil` to the configured adult scale. Elijah's correction in Discord
+`1561148464233054261` supersedes the former finalization/containment design.
+Vanilla keeps its check order, retries, collision-check toggle and finalization.
+Babies, variants and riders do not trigger a new check after finalization.
+`EntitySizing` owns the adult-scale calculation; no entity-load veto or tracking
+replacement is added.
 The client component does
 not invent entities outside vanilla server tracking.
 
@@ -61,21 +62,10 @@ realsize-mod/
     │   │   │   └── ResolvedSettings.java
     │   │   ├── mixin/
     │   │   │   ├── SpawnUtilMixin.java
-    │   │   │   ├── NaturalSpawnerMixin.java
-    │   │   │   ├── SpawnPlacementPlugin.java
-    │   │   │   ├── AgeableSpawnMixin.java
-    │   │   │   ├── FishSpawnMixin.java
-    │   │   │   ├── ChickenSpawnMixin.java
-    │   │   │   ├── ZombieSpawnMixin.java
-    │   │   │   ├── HuskSpawnMixin.java
-    │   │   │   ├── SpawnConstructionMixin.java
-    │   │   │   ├── SpawnEffectMixin.java
-    │   │   │   └── SpawnMountAccess.java
+    │   │   │   └── NaturalSpawnerMixin.java
     │   │   └── sizing/
     │   │       ├── SizingPolicy.java
-    │   │       ├── EntitySizing.java
-    │   │       ├── SpawnSizing.java
-    │   │       └── SpawnPreparation.java
+    │   │       └── EntitySizing.java
     │   └── resources/
     │       ├── fabric.mod.json
     │       ├── realsize.spawn.mixins.json
@@ -97,16 +87,13 @@ realsize-mod/
         │   ├── ResolvedSettingsGameTests.java
         │   ├── SizingGameTests.java
         │   ├── SpawnGameTests.java
-        │   ├── SpawnPreparationGameTests.java
         │   ├── ChunkSpawnGameTests.java
         │   ├── SpawnDimensionGameTests.java
         │   ├── ClientRenderGameTests.java
         │   ├── NaturalSpawnProbe.java
         │   └── testmixin/
         │       ├── NaturalSpawnProbeMixin.java
-        │       ├── OuterSpawnProbeMixin.java
-        │       ├── CreatedSpawnProbeMixin.java
-        │       └── SpawnEventProbeMixin.java
+        │       └── OuterSpawnProbeMixin.java
         └── resources/
             ├── fabric.mod.json
             ├── realsize-test.mixins.json
@@ -133,15 +120,11 @@ realsize-mod/
   modifiers. Entity load, growth, configuration reload, and dimension checks
   use that owner, not parallel maps or fallback handlers. Lifecycle integration
   is verified against 26.3 before selecting its concrete callbacks.
-- `SpawnSizing` uses the same resolved policy and dimensions to reject enlarged
-  natural placements that collide. It does not maintain a second sizing model.
-  The placement adapters integrate `SpawnUtil` and the ticking/chunk-generation
-  `NaturalSpawner` candidate loops before their success branches. Finalized age,
-  variant and foreign attributes are reflected before clearance succeeds.
-  Finalization runs once at its original invocation, including composed wrappers;
-  it is not moved into an earlier obstruction check.
-  The composition root supplies its current `EntitySizing` owner to this check,
-  including after config/tag reload; there is no parallel active sizing state.
+- `EntitySizing.spawnBounds` scales vanilla's supplied adult spawn bounds with
+  the existing policy and resolved snapshot. The two placement adapters change
+  only the argument to vanilla's existing type-bounds collision checks, before
+  candidate finalization. They do not mutate candidates or track preparation.
+  The composition root supplies its current owner, including after reload.
 - `RealSizeClient` owns client-local options and the client-only render adapter.
   No common initializer imports a client class.
 
@@ -217,63 +200,29 @@ categories and aquatic families whose categories are MONSTER/MISC (guardians,
 nautiluses, and fish including tadpoles). A higher foreign/vanilla baseline is
 still preserved, including a camel's vanilla `1.5` step.
 
-### Candidate preparation and acceptance
+### Early spawn bounds only
 
-`SpawnPreparation` is a short-lived finalization effect boundary, not another
-sizing owner or a rollback mechanism. A scoped server-thread context owns only
-the current candidate, newly created companion mobs and explicit deferred
-effects. Nested construction belongs to that same preparation. No context or
-candidate map survives the placement attempt; exception paths restore scope.
+`NaturalSpawnerMixin` wraps the existing `EntityType.getSpawnAABB(DDD)` calls
+in ticking and chunk-generation placement. `SpawnUtilMixin` wraps that same
+call in `trySpawnMob`; when its collision toggle is false, vanilla skips the
+call and RealSize does not add one. Both adapters pass the original bounds to
+`EntitySizing.spawnBounds`, which applies the existing policy's configured
+adult multiplier around the original horizontal center and bottom Y.
+Neutral and absent rules return the original bounds unchanged. Vanilla's spawn-
+dimension factors remain part of the supplied bounds.
 
-Candidate-local age, variant, equipment and attribute choices execute once in
-the original finalization chain. The audited externally visible operations are
-deferred: shared ageable-group increments, fish-school leader updates, existing
-chicken jockey state/attachment, companion registration, and mount/dismount
-events and spawn sounds. Fresh-owned attachments may execute locally only with
-their transitive event effects contained. Abort discards every fresh-owned mob
-without committing events, registrations or changes to existing entities.
-An existing entity is never resized, refreshed, repositioned or discarded by
-preparation. Accepted effects retain original ordering and once-only choices.
+No candidate is created early, finalized twice, resized for checking, moved,
+rolled back or held in thread-local preparation state. All later vanilla checks,
+finalizers, group changes, companions, registrations and callbacks retain their
+original order. No post-finalization gate, ASM plugin or species-specific hook
+is permitted. Vanilla's own baby/variant/rider fit quirks remain unchanged.
 
-The final gate runs after the entire composed finalization expression, not
-inside a call-site wrapper that another wrapper could surround. It asks the
-current `EntitySizing` owner to reconcile every fresh mob and explicitly
-refreshes actual dimensions. Owned vehicles and sibling passengers count too,
-not just root descendants. Riding positions are derived vehicle-first from
-vanilla attachment behavior; projected existing-chicken attachment cannot mutate
-the chicken. Clearance and the accepted attachment positions must agree.
-
-`SpawnPlacementPlugin` supplies only the missing rejection edge in the two
-NaturalSpawner loops: after the original finalizer returns, keep its group
-result in a temporary local, run the gate, and branch to the existing failed-
-candidate continuation when rejected. Group assignment, counters, registration
-and callback stay on vanilla's success path. Chunk generation retains its
-coordinate-update continuation. The original invocation and its wrappers remain;
-there is no copied loop, sentinel group result, or early/cached finalizer.
-Structural target/count checks fail closed rather than silently skipping this
-edge. Transformed bytecode and composed-wrapper GameTests verify that placement
-actually uses it. SpawnUtil defers effects across creation and the original
-rule/obstruction checks until its existing registration-success branch.
-
-The additional common sources are `sizing/SpawnPreparation.java`,
-`mixin/SpawnPlacementPlugin.java`, and narrow mixins for ageable finalization,
-schooling fish, jockey finalizers, fresh construction and finalization effects.
-They are scoped to active placement attempts, not tracking or general load vetoes.
-Production sources are added only after this architecture commit. Exact target
-inventory and executed acceptance evidence belong in FIXES.md. Compatibility
-tests cover foreign dimension/attribute wrappers on both sides of the placement
-integration; arbitrary foreign finalizers with their own external mutations
-require cooperative preparation hooks and are not silently promised safe.
-
-Natural spawn clearance uses scaled final dimensions before placement succeeds.
-The 26.3 executable spike proved that Fabric `ALLOW_LOAD` is too late: it can
-reject registration while `SpawnUtil` reports success and stops retrying. The
-original zero-server-mixin requirement is superseded only by the approved
-placement/finalization boundary above, not by general permission for server hooks. Required
-transformed tests cover collision rejection, adequate space, failed-candidate
-retries and natural placement. Explicit summons, config changes and existing
-mobs do not trigger collision-based teleport/deletion. The failed spike remains
-historical evidence in FIXES.md, not a passing implementation claim.
+Transformed GameTests cover early rejection before finalization, accepted
+configured adult bounds, unchanged retries, neutral/smaller rules and a late
+finalizer change that vanilla accepts without another collision gate. Commands,
+loaded mobs and reload do not acquire placement vetoes. Earlier finalized-spawn
+verification in FIXES.md is historical evidence for a superseded design, not a
+requirement to restore it.
 
 ## Client rendering
 
@@ -350,9 +299,10 @@ result counts as behavioral verification; no 1.21 compatibility range is claimed
    modded clients, config/world migration, metadata link corrections, and tested
    build/install instructions. Record remaining unperformed checks explicitly.
 
-Elijah has approved implementation of this update. Execution begins with one
-Kanban scaffold worker, followed by one separate worker per feature, strictly
-sequentially. Each worker exercises its deliverable, obtains independent review,
+Elijah has approved implementation of this update. The original build used one
+Kanban scaffold worker followed by separate sequential feature workers. His
+explicit takeover request `1561151136940032071` stops that autonomous chain;
+the early-check correction is implemented directly in the originating thread. Each worker exercises its deliverable, obtains independent review,
 updates the acceptance evidence, and commits before completing its task and
 releasing the next worker. Scaffold includes only executable build/test/runtime
 groundwork, not placeholder owners or bundled feature implementations. Features
