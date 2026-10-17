@@ -137,11 +137,16 @@ placement is accepted. Existing mobs, explicit summons, and config changes are
 not teleported or deleted to solve collisions; administrators must leave enough
 space for the configured sizes.
 
-Only narrow server spawn-placement mixins are permitted for that clearance
-check. They run before placement reports success, preserve candidate retries,
-and use the same sizing owner as load and reload. There are no server tracking
+Only bounded server spawn-placement and candidate-finalization adapters are
+permitted for that clearance check. Finalization keeps its original invocation;
+shared-group, jockey and other audited external effects commit only for accepted
+candidates. The adapters run before placement reports success, preserve candidate
+retries, and use the same sizing owner as load and reload. Foreign finalizers
+with additional external side effects need cooperative preparation integration;
+they are not covered by an unrestricted compatibility claim. There are no server tracking
 mixins, custom networking, or client-required registries. This bounded exception
-replaces the rebuild's original zero-server-mixin requirement; implementation
+replaces the rebuild's original zero-server-mixin requirement, with finalization
+scope extended under Elijah's delegated engineering authority; implementation
 and verification status remain in FIXES.md.
 
 ## Building and testing

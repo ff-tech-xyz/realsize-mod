@@ -12,8 +12,10 @@ One Fabric project targets Minecraft 26.3 and Java 25. The same JAR provides
 server-owned mob sizing and an optional, isolated client rendering correction.
 Vanilla clients can join. The server has no RealSize tracking hooks or tracking
 mixins, custom networking, or client-required registries. Its only permitted
-server mixins are narrow pre-success spawn-placement adapters, approved by
-Elijah in Discord message `1560310593595117589` on 2026-10-15. They preserve
+server mixins are bounded spawn-placement and candidate-finalization adapters.
+Elijah approved placement in Discord message `1560310593595117589` on 2026-10-15;
+the parent approved the necessary preparation/commit finalization seams on
+2026-10-17 under his delegated engineering authority (`1561085232118104065`). They preserve
 vanilla failed-candidate retries and delegate all sizing mutation to
 `EntitySizing`; they do not veto entity loads or replace server tracking.
 The client component does
@@ -112,11 +114,11 @@ realsize-mod/
   is verified against 26.3 before selecting its concrete callbacks.
 - `SpawnSizing` uses the same resolved policy and dimensions to reject enlarged
   natural placements that collide. It does not maintain a second sizing model.
-  The spawn mixins adapt only `SpawnUtil` and the ticking/chunk-generation
+  The placement adapters integrate `SpawnUtil` and the ticking/chunk-generation
   `NaturalSpawner` candidate loops before their success branches. Finalized age,
-  variant and foreign attributes must be reflected before clearance succeeds;
-  any necessary finalization reordering remains inside those placement adapters,
-  runs once per candidate, and retains vanilla retry/group-success semantics.
+  variant and foreign attributes are reflected before clearance succeeds.
+  Finalization runs once at its original invocation, including composed wrappers;
+  it is not moved into an earlier obstruction check.
   The composition root supplies its current `EntitySizing` owner to this check,
   including after config/tag reload; there is no parallel active sizing state.
 - `RealSizeClient` owns client-local options and the client-only render adapter.
@@ -194,11 +196,59 @@ categories and aquatic families whose categories are MONSTER/MISC (guardians,
 nautiluses, and fish including tadpoles). A higher foreign/vanilla baseline is
 still preserved, including a camel's vanilla `1.5` step.
 
+### Candidate preparation and acceptance
+
+`SpawnPreparation` is a short-lived finalization effect boundary, not another
+sizing owner or a rollback mechanism. A scoped server-thread context owns only
+the current candidate, newly created companion mobs and explicit deferred
+effects. Nested construction belongs to that same preparation. No context or
+candidate map survives the placement attempt; exception paths restore scope.
+
+Candidate-local age, variant, equipment and attribute choices execute once in
+the original finalization chain. The audited externally visible operations are
+deferred: shared ageable-group increments, fish-school leader updates, existing
+chicken jockey state/attachment, companion registration, and mount/dismount
+events and spawn sounds. Fresh-owned attachments may execute locally only with
+their transitive event effects contained. Abort discards every fresh-owned mob
+without committing events, registrations or changes to existing entities.
+An existing entity is never resized, refreshed, repositioned or discarded by
+preparation. Accepted effects retain original ordering and once-only choices.
+
+The final gate runs after the entire composed finalization expression, not
+inside a call-site wrapper that another wrapper could surround. It asks the
+current `EntitySizing` owner to reconcile every fresh mob and explicitly
+refreshes actual dimensions. Owned vehicles and sibling passengers count too,
+not just root descendants. Riding positions are derived vehicle-first from
+vanilla attachment behavior; projected existing-chicken attachment cannot mutate
+the chicken. Clearance and the accepted attachment positions must agree.
+
+`SpawnPlacementPlugin` supplies only the missing rejection edge in the two
+NaturalSpawner loops: after the original finalizer returns, keep its group
+result in a temporary local, run the gate, and branch to the existing failed-
+candidate continuation when rejected. Group assignment, counters, registration
+and callback stay on vanilla's success path. Chunk generation retains its
+coordinate-update continuation. The original invocation and its wrappers remain;
+there is no copied loop, sentinel group result, or early/cached finalizer.
+Structural target/count checks fail closed rather than silently skipping this
+edge. Transformed bytecode and composed-wrapper GameTests verify that placement
+actually uses it. SpawnUtil defers effects across creation and the original
+rule/obstruction checks until its existing registration-success branch.
+
+The additional common sources are `sizing/SpawnPreparation.java`,
+`mixin/SpawnPlacementPlugin.java`, and narrow mixins for ageable finalization,
+schooling fish, jockey finalizers, fresh construction and finalization effects.
+They are scoped to active placement attempts, not tracking or general load vetoes.
+Production sources are added only after this architecture commit. Exact target
+inventory and executed acceptance evidence belong in FIXES.md. Compatibility
+tests cover foreign dimension/attribute wrappers on both sides of the placement
+integration; arbitrary foreign finalizers with their own external mutations
+require cooperative preparation hooks and are not silently promised safe.
+
 Natural spawn clearance uses scaled final dimensions before placement succeeds.
 The 26.3 executable spike proved that Fabric `ALLOW_LOAD` is too late: it can
 reject registration while `SpawnUtil` reports success and stops retrying. The
 original zero-server-mixin requirement is superseded only by the approved
-placement exception above, not by general permission for server hooks. Required
+placement/finalization boundary above, not by general permission for server hooks. Required
 transformed tests cover collision rejection, adequate space, failed-candidate
 retries and natural placement. Explicit summons, config changes and existing
 mobs do not trigger collision-based teleport/deletion. The failed spike remains
