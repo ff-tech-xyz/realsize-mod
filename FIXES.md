@@ -18,8 +18,9 @@ Transient entity sizing, legacy attribute cleanup, and common server load/growth
 wiring are implemented and exercised against actual mobs and chunk storage.
 Transactional command/tag reload and changed-config chunk loading are implemented
 and tested. Proportional movement and actual server collision courses are also
-implemented and tested. Spawn clearance and optional client culling remain
-deferred. The former FEATURES.md mentioned
+implemented and tested. Finalized natural-spawn clearance is implemented,
+independently reviewed and committed; optional client culling remains deferred.
+The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
 
 ## Open fixes
@@ -61,7 +62,7 @@ in the audit is not present in this checkout; ARCHITECTURE is the active contrac
   reconcile growth through the sizing owner. Test baby/adult chickens and other
   ageable mobs, growth, chunk reload, and foreign scale coexistence. Prove neutral
   and absent rules leave vanilla baby sizing untouched.
-- [ ] **RS-08 — Enlarged spawn clearance.** Verify the 26.3 natural-placement
+- [x] **RS-08 — Enlarged spawn clearance.** Verify the 26.3 natural-placement
   seam and reject collisions using final dimensions. Test a scaled golem in a
   too-short space and an adequate space. Gate any required server mixin on a
   documented architecture decision; do not hide it under a second size system.
@@ -1474,3 +1475,32 @@ isolation passed; corrected JAR SHA-256 is
 The feature still needs independent exact-staged re-review of this correction
 before commit/push and downstream acceptance. The first feature review is not
 being reported as READY. Whole-branch/client/release validation remains separate.
+
+### Spawn feature accepted and pushed
+
+Final independent reviewer `gpt-6.1-sol`, `deleg_6fcde7fc/task-0`, returned READY
+for exact staged SHA-256
+`2c57c945ba6d518bd0db55f8de4c60ed777dacaaecbb3fcd7af323c85a519e23`.
+The parent rechecked the unchanged staged hash and read the real reviewer rerun
+log/XML: three tests, zero failures (both original remount regressions plus
+vanilla baseline). The actual Husk loop covers seeds 0–9999. No repository
+edits were made by either feature reviewer. The feature used two review rounds:
+one concrete failure, its red-to-green correction, then READY.
+
+Committed exactly that reviewed index as
+`2eb0b253c3f4aecbcbfca775b06379f35daa3c41`
+(`Check finalized natural spawns before acceptance`). The real physical hook
+printed `anti-slop: architecture conformance passed`. `git push origin
+update/V.1.2.0` exited 0; `git ls-remote origin refs/heads/update/V.1.2.0`
+read back that exact SHA. The preceding architecture commit `bb22df1` was pushed
+with it. This subsequent documentation-only closeout records those observed
+results without changing the independently reviewed source or tested artifact.
+
+RS-08 is complete for the approved spawn feature, not for the entire update.
+The next sequential card may implement optional client culling. Connected
+vanilla/modded client play, integrated single-player, whole-branch final review,
+wider gameplay/profiling/migration validation and Elijah's disposable test-server
+handoff still belong to downstream cards. No release or player-facing deployment
+is approved or claimed here. The current JAR remains Minecraft 26.3 / Java 25 /
+artifact 1.2.0, SHA-256
+`5a80dfbffac6b1edd7988534582a9e01a4bac8210acc0201446e30335c426ee2`.
