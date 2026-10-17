@@ -87,8 +87,8 @@ realsize-mod/
     │       └── sizing/SizingPolicyTest.java
     └── gametest/
         ├── java/xyz/pyrehaven/realsize/
-        │       ├── ScaffoldGameTests.java
-        │       ├── LifecycleGameTests.java
+        │   ├── ScaffoldGameTests.java
+        │   ├── LifecycleGameTests.java
         │   ├── ResolvedSettingsGameTests.java
         │   ├── SizingGameTests.java
         │   ├── SpawnGameTests.java

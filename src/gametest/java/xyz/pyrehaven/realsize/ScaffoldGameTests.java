@@ -24,8 +24,11 @@ public final class ScaffoldGameTests {
             helper.assertTrue(entity instanceof Mob, "Default must name a mob: " + rule.getKey());
             double minimum = type.orElseThrow().getCategory() == MobCategory.MONSTER
                     ? defaults.hostileFloor() : defaults.floor();
-            helper.assertTrue(rule.getValue() >= minimum && rule.getValue() <= defaults.cap(),
-                    "Default must respect category bounds: " + rule.getKey());
+            double effective = new xyz.pyrehaven.realsize.sizing.SizingPolicy(
+                    defaults.floor(), defaults.hostileFloor(), defaults.cap())
+                    .multiplier(rule.getValue(), type.orElseThrow().getCategory() == MobCategory.MONSTER, 1.0);
+            helper.assertTrue(effective >= minimum && effective <= defaults.cap(),
+                    "Effective default must respect category bounds: " + rule.getKey());
         }
         helper.succeed();
     }

@@ -29,6 +29,18 @@ class ConfigFileTest {
             """;
 
     @Test
+    void firstRunPreservesLegacySmallHostileSizes() throws Exception {
+        var config = ConfigFile.loadOrCreate(directory.resolve("realsize.json"), ignored -> {});
+        assertEquals(0.22, config.floor());
+        assertEquals(config.floor(), config.hostileFloor(), "A hostile floor must not silently enlarge v1 defaults");
+        var legacy = java.util.Map.of("minecraft:spider", 0.26, "minecraft:cave_spider", 0.20,
+                "minecraft:silverfish", 0.22, "minecraft:endermite", 0.22,
+                "minecraft:zombie_nautilus", 0.40, "minecraft:vex", 0.30);
+        legacy.forEach((id, scale) -> assertEquals(scale, config.entityScales().get(id), id));
+        assertEquals(config, ConfigFile.loadOrCreate(directory.resolve("realsize.json"), ignored -> {}));
+    }
+
+    @Test
     void legacyMigrationBacksUpExactBytesAndDoesNotMergeDefaults() throws Exception {
         Path file = directory.resolve("realsize.json");
         byte[] original = (" \r\n" + LEGACY + "\t\n").getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -46,7 +58,7 @@ class ConfigFileTest {
         assertEquals(2, migrated.configVersion());
         assertEquals(0.22, migrated.floor());
         assertEquals(1.45, migrated.cap());
-        assertEquals(0.6, migrated.hostileFloor());
+        assertEquals(0.22, migrated.hostileFloor());
         assertTrue(migrated.proportionalStepHeight());
         assertEquals(1.49, migrated.maxStepHeight());
         assertEquals(java.util.Map.of("minecraft:bee", 0.4, "example:unknown", 0.2), migrated.entityScales());
@@ -79,7 +91,7 @@ class ConfigFileTest {
             input.remove(field);
             assertInvalid(input.toString(), field);
         }
-        assertInvalid(LEGACY.replace("1.45", "0.4"), "cap");
+        assertInvalid(LEGACY.replace("1.45", "0.1"), "cap");
         assertInvalid(LEGACY.replace("\"stepHeightBoostAmount\":0.5", "\"stepHeightBoostAmount\":-1"),
                 "stepHeightBoostAmount");
         assertInvalid(LEGACY.replace("\"minTrackingRangeChunks\":10", "\"minTrackingRangeChunks\":1.5"),
@@ -230,7 +242,7 @@ class ConfigFileTest {
         var messages = new ArrayList<String>();
         var generated = ConfigFile.loadOrCreate(file, messages::add);
         assertEquals(0.22, generated.floor());
-        assertEquals(0.6, generated.hostileFloor());
+        assertEquals(0.22, generated.hostileFloor());
         assertEquals(1.45, generated.cap());
         assertEquals(1.49, generated.maxStepHeight());
         assertTrue(generated.proportionalStepHeight());

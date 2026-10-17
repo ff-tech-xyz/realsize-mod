@@ -124,7 +124,7 @@ public final class ConfigFile {
             }
         }
         double floor = number(object, "floor");
-        return new RealSizeConfig(2, floor, Math.max(floor, 0.6), number(object, "cap"),
+        return new RealSizeConfig(2, floor, floor, number(object, "cap"),
                 true, 1.49, true, scales(object));
     }
 

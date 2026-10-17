@@ -7,13 +7,13 @@ public final class DefaultScales {
     }
 
     public static RealSizeConfig config() {
-        // Retain the legacy selection, with hostile entries raised to the v2 floor.
+        // Retain the v1 table; bounds are applied by SizingPolicy, not baked into rules.
         // Registry membership and living-entity eligibility are checked in GameTests.
-        return new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, Map.ofEntries(
-                Map.entry("minecraft:spider", 0.6),
-                Map.entry("minecraft:cave_spider", 0.6),
-                Map.entry("minecraft:silverfish", 0.6),
-                Map.entry("minecraft:endermite", 0.6),
+        return new RealSizeConfig(2, 0.22, 0.22, 1.45, true, 1.49, true, Map.ofEntries(
+                Map.entry("minecraft:spider", 0.26),
+                Map.entry("minecraft:cave_spider", 0.20),
+                Map.entry("minecraft:silverfish", 0.22),
+                Map.entry("minecraft:endermite", 0.22),
                 Map.entry("minecraft:bee", 0.25),
                 Map.entry("minecraft:bat", 0.24),
                 Map.entry("minecraft:frog", 0.28),
@@ -26,7 +26,7 @@ public final class DefaultScales {
                 Map.entry("minecraft:squid", 0.4),
                 Map.entry("minecraft:glow_squid", 0.4),
                 Map.entry("minecraft:nautilus", 0.4),
-                Map.entry("minecraft:zombie_nautilus", 0.6),
+                Map.entry("minecraft:zombie_nautilus", 0.4),
                 Map.entry("minecraft:turtle", 0.55),
                 Map.entry("minecraft:chicken", 0.64),
                 Map.entry("minecraft:parrot", 0.45),
@@ -35,7 +35,7 @@ public final class DefaultScales {
                 Map.entry("minecraft:fox", 0.5),
                 Map.entry("minecraft:armadillo", 0.38),
                 Map.entry("minecraft:allay", 0.42),
-                Map.entry("minecraft:vex", 0.6),
+                Map.entry("minecraft:vex", 0.3),
                 Map.entry("minecraft:ocelot", 0.64),
                 Map.entry("minecraft:goat", 0.65),
                 Map.entry("minecraft:wolf", 0.88),

@@ -64,7 +64,7 @@ substituting a value.
 {
   "configVersion": 2,
   "floor": 0.22,
-  "hostileFloor": 0.6,
+  "hostileFloor": 0.22,
   "cap": 1.45,
   "proportionalStepHeight": true,
   "maxStepHeight": 1.49,
@@ -78,8 +78,10 @@ substituting a value.
 ```
 
 This is a short custom configuration, not the complete generated default table.
-The default table is reviewed against the 26.3 registry; hostile entries cannot
-bypass `hostileFloor`.
+The generated table retains v1's sizes and is reviewed against the 26.3 registry.
+Both floors default to `0.22`; a higher `hostileFloor` is opt-in. Hostile entries
+cannot bypass that configured bound. Existing v2 files are not rewritten; remove
+the file if you deliberately want newly generated defaults instead of your map.
 
 - `floor` and `hostileFloor` set minimum final size relative to the entity type's
   unscaled adult size, including baby scaling, for active non-neutral rules.
@@ -105,7 +107,7 @@ instead of an implicit default merge.
 The supported legacy input is the old unversioned JSON object. It must contain
 `floor`, `cap`, and `entityScales`; the old tracking and flat-step fields are
 optional, validated if present, and removed with a named migration diagnostic.
-Migration retains the explicit map, sets `hostileFloor` to `max(floor, 0.6)`,
+Migration retains the explicit map, sets `hostileFloor` to the legacy `floor`,
 enables proportional movement and the local rendering option, and uses `1.49`
 for `maxStepHeight`. Incompatible bounds fail rather than silently changing
 `cap`. A v2-shaped file missing `configVersion` is an error, not legacy input.
