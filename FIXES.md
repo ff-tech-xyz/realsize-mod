@@ -1,11 +1,13 @@
 # RealSize v2 fixes and acceptance
 
-Status: early-check simplification implemented and locally verified after
-Elijah's scope correction. Independent review/hosted CI and player-driven
-acceptance of the corrected branch are not claimed.
+Status: v1 default parity and event-driven growth fixes are implemented and
+locally verified. The LAN preview has the verified JAR and regenerated defaults.
+The reported vanilla-client animation fault remains unreproduced; it is not
+claimed fixed. Independent review/hosted CI and player-driven acceptance of the
+corrected branch are not claimed.
 Required player-driven gameplay is not accepted. Autonomous validation/review
 workers were stopped and their pending cards archived at his request; work now
-continues directly in thread `1561148464233054261`. README and ARCHITECTURE describe the final
+continues directly, most recently in thread `1561155192228155472`. README and ARCHITECTURE describe the final
 product in present tense at Elijah's request; this tracker describes reality.
 The supplied audit concerns the removed legacy implementation. Its exact mob
 visibility distances, allocation rates, and gameplay outcomes are reported
@@ -31,6 +33,70 @@ and independently accepted, committed and pushed below. Wider final-validation
 gates remain open; the client result is not inferred from earlier spawn work.
 The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
+
+## 2026-10-17 — Default parity and lifecycle regression fixes
+
+- Restored every raw default rule to the v1 table (`b9baf45`): 50/50 entries
+  compare equal. Both first-run floors are `0.22`; the raw cave-spider rule is
+  `0.20`, floored to `0.22` as in v1. Legacy migration now retains the old floor
+  for hostiles instead of silently enlarging them. Existing explicit v2 maps and
+  floors are unchanged. These contracts supersede historical `0.6` default claims
+  below; configurable higher hostile floors remain supported and tested.
+- Removed the end-level-tick entity scan entirely. One required, multi-target
+  baby-metadata adapter delegates loaded server entities to EntitySizing, covering
+  AgeableMob (including hoglins), zombies, piglins and zoglins. No age cache,
+  periodic polling or replacement vanilla age logic was added. Real growth now
+  applies and consumes scale changes within the entity tick, rather than leaving
+  dimensions stale until a tick after the old end-level sweep.
+- Removed `stepWithoutOwnedModifier`. Lifecycle reconciliation removes the owned
+  step modifier, asks Minecraft for the foreign-inclusive baseline, and applies
+  the desired transient multiplier. Existing foreign-operation, camel, aquatic,
+  fence/wall and save-data behavioral cases remain passing.
+- Red evidence: the fresh-default test failed on the old hostile floor; legacy
+  migration failed its parity assertion; both new lifecycle cases failed against
+  the old sweep implementation. `evidence/lifecycle-red.log` records the initial
+  Minecraft failures. During implementation a remappable shadow on the
+  multi-target mixin was rejected; explicit non-remapping corrected it and all
+  four baby-state targets now pass real behavior tests.
+- `./gradlew clean build` passed with 22 JUnit and 33 Minecraft cases, zero
+  failures/errors/skips. The first clean run timed out waiting for natural-spawn
+  fixture chunks; the clean retry passed, as did subsequent packaged and deploy
+  build runs. Existing mock-player deprecation warnings remain. The fixture
+  timeout is not hidden or claimed repaired by these lifecycle changes.
+- Actual-JAR server GameTests passed 33/33 with class-load provenance from the
+  packaged artifact. Packaged client tests passed integrated and dedicated TCP
+  modes, including local culling toggles and vanilla tracking removal. The
+  packaged dedicated smoke reached Done, saved worlds and exited 0 with no
+  Minecraft/RealSize client classes loaded.
+- A real Mojang client with no Fabric Loader or RealSize joined the packaged
+  server, received scale/step changes and reloads, and retained vanilla culling
+  and tracking. A tick-return-only probe compared v1 BASE and v2 TOTAL scale
+  operations for bees/chickens at `0.25` and spiders at `0.26`: at matched `0.04`
+  displacement over 20 updates each had advancing, identical walk speed
+  `0.15999416` and phase `2.9600086`. This is a numerical same-version check,
+  not visual acceptance or a comparison of historical Minecraft releases.
+  The animation report remains open pending the affected mob and symptom/clip;
+  no guessed animation or movement-speed patch was added.
+- Retained legacy permanent-modifier cleanup: v2 still needs to clean existing
+  v1 worlds, and removing it before that migration would strand saved effects.
+  It runs on load, not per tick. Retained the small Gson JsonReader schema
+  adapter because it enforces the existing duplicate-key, strict-number and
+  depth contracts; Gson already performs JSON tokenization. Backup and atomic
+  replacement behavior remain tested. Neither lower-priority item is claimed
+  removed.
+- Preview deployed at `192.168.68.65:25565`, with startup/config/JAR read-back
+  verified. The regenerated file contains all 50 v1 rules, floors `0.22`, cap
+  `1.45`. `pyretest deploy` first lacked PyYAML in its selected interpreter;
+  the system interpreter resolved that, but the helper cannot find Gradle's
+  external-runtime output. Only the disposable active Fabric program was then
+  stopped, its existing preview JAR replaced with the verified artifact, its
+  config regenerated, and the same supervised program restarted. No shared
+  tooling or production configuration was changed.
+- Tested/deployed JAR SHA256:
+  `32835e9aab1d8ba5c2a89b119860723ad0ceeb62ed133165a62b805c3b03c4ec`.
+  Logs live under `runtime/realsize-mod/evidence/lifecycle-*`; the vanilla probe
+  lives under `evidence/client/VanillaProbe.java`. No independent reviewer was
+  spawned under the direct-takeover restriction. No release or merge occurred.
 
 ## Open fixes
 
@@ -65,8 +131,8 @@ in the audit is not present in this checkout; ARCHITECTURE is the active contrac
   resolve per-EntityType settings once per registry/config snapshot. Inspect
   adapter paths for per-call string conversions and repeated registry selection;
   profile realistic entities rather than repeat the audit's unmeasured rate.
-- [ ] **RS-06 — Hostile size and combat.** Apply the separate hostile floor
-  (target default 0.6). Test spider passage under slabs/through holes, cave-spider
+- [ ] **RS-06 — Hostile size and combat.** Support the separate hostile floor
+  (default 0.22 for v1 parity; higher floors are opt-in). Test spider passage under slabs/through holes, cave-spider
   targeting, and melee reach. Document remaining differences; the floor is not
   a promise that all vanilla mob-proofing survives.
 - [ ] **RS-07 — Baby size.** For active non-neutral rules, enforce category bounds after baby factors, then
