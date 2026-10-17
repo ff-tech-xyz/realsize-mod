@@ -1,15 +1,17 @@
 # RealSize v2 fixes and acceptance
 
-Status: open implementation work. README and ARCHITECTURE describe the final
+Status: final validation in progress; required player-driven gameplay is not
+accepted. README and ARCHITECTURE describe the final
 product in present tense at Elijah's request; this tracker describes reality.
 The supplied audit concerns the removed legacy implementation. Its exact mob
 visibility distances, allocation rates, and gameplay outcomes are reported
 findings, not locally reproduced measurements. Do not mark them verified from
 this document alone.
 
-Current checkout: executable scaffold with isolated main/client entrypoints,
-Fabric metadata, a packaged JAR, an artifact smoke test, and a real server
-GameTest. It uses one 26.3 project, Java 25, non-remapping Loom, and no identity
+Current checkout: all planned feature owners are implemented, with isolated
+main/client entrypoints, Fabric metadata, a packaged JAR, packaged-runtime
+probes, JUnit and actual Minecraft server/client tests. It uses one 26.3
+project, Java 25, non-remapping Loom, and no identity
 mapping JAR. Configuration parsing, immutable snapshots, first-run defaults, and
 legacy file migration are implemented and tested as a standalone boundary.
 Registry/tag resolution is also implemented and tested against the 26.3 server;
@@ -1636,3 +1638,140 @@ or artifact. RS-01/RS-11 feature work is complete; the approximate 12-block
 visual claim stays unverified. Final-validation card `t_945dc696` remains
 responsible for the wider open gates and whole-branch review. No runtime server
 or client is intentionally left running, and no next-card work was implemented.
+
+## Final-validation candidate and desktop gameplay gate — 2026-10-17
+
+Scope: `t_945dc696`, starting from clean `dee1c5426aa84d76202eb2ddf53ac02daa677611`
+on `update/V.1.2.0`. Fresh remote read-back matched before edits. This is a
+validation/CI candidate, **not acceptance of the complete update**. No release,
+PR, merge, production mutation, Modrinth change or player-facing deployment is
+authorized or performed. The user-requested test-server/JAR delivery remains
+gated on completion, not silently substituted with these loopback probes.
+
+The checked-in smoke probe now excludes production source outputs and boots
+`build/libs/realsize-1.2.0.jar` on Loom's pinned dependency/game classpath.
+`runClientGameTest` also excludes production source outputs, explicitly depends
+on packaging and development test compilation, and records class provenance.
+The CI workflow uses SHA-pinned checkout/setup-java/upload-artifact actions,
+Temurin `25.0.1+8`, the checksum-pinned Gradle wrapper and the existing exact
+26.3/Fabric build pins. It runs the nonempty suites, packaged server smoke and
+Xvfb client modes, verifies that the exercised JAR is unchanged, and retains
+that artifact with reports. A hosted CI pass is **pending**, not inferred from
+adding YAML. README/ARCHITECTURE now describe these actual test commands.
+
+Exact locally tested artifact: Minecraft `26.3`, Java `25`, mod `1.2.0`,
+`../../runtime/realsize-mod/build/libs/realsize-1.2.0.jar`, SHA-256
+`b1eb854a623fc2d52d84917a2c863e8bb9a1d70d2a2c10680ab1d8a13c77c334`.
+All commands below ran from the checkout. New evidence is under
+`../../runtime/realsize-mod/evidence/final/` unless otherwise stated.
+
+- `./gradlew clean build --console=plain`: exit **0**, **BUILD SUCCESSFUL in
+  38s**, 15 actionable tasks, 13 executed/2 up-to-date. Parsed XML: **39 Minecraft
+  cases and 21 JUnit cases, zero failures/errors/skips**. The 39 include vanilla
+  `always_pass`, not 39 RealSize tests. Log: `final-clean-build.log`; copied XML
+  and counts/hash are in `build-summary.json`. Source/test Java compilation and
+  behavioral suites are nonempty; absent resource/access-widener tasks alone
+  remain `NO-SOURCE`.
+- Two new actual-mob GameTests are coverage additions, not claimed production
+  red cycles. A 32-move collision course shows vanilla spider fails a width-one
+  hole (displacement `0.30000001192092896`) but the `0.6` hostile-floor spider
+  traverses (`8.0`). That spider still fails half-block slab clearance
+  (`2.5799999833106995`); shrunk cave spider traverses both (`8.0`). Actual melee
+  range sampled in `0.05`-block increments changes spider `1.8 -> 1.5`, cave
+  spider `1.4500000000000002 -> 1.3`. Both retain an explicitly assigned
+  survival-player target, `canAttack`, close-range attack success and `2.0`
+  health damage, without changing attack damage. These are actual collision/
+  combat methods, **not natural AI target acquisition or a player playthrough**.
+  Measurements: `run/gameTest/sizing-evidence/hostile-passage.txt` and
+  `hostile-combat.txt` under the runtime root. Existing fence/wall/camel/aquatic,
+  saved-data/reload/growth and natural-placement suites remain active.
+- `python3 scripts/server-smoke.py`: exit **0**, packaged dedicated startup,
+  `Done`, save/stop/exit 0; no test mod or Minecraft/RealSize client classes.
+  Class trace proves common root/owner load from the JAR, not build/classes.
+  Log: `final-server-smoke.log`; detailed logs remain `evidence/server-smoke.log`
+  and `server-classes.log` under the runtime root.
+- `xvfb-run -a ./gradlew --no-daemon runClientGameTest --console=plain`:
+  exit **0**, **BUILD SUCCESSFUL in 26s**. Both integrated and dedicated TCP
+  PASS/tracking PASS markers occur once each. Local toggle, invalid reload,
+  synced server sizing, distance/view-scale boundaries, babies/nonliving mobs,
+  downstream frustum rejection and distant vanilla tracking removal pass.
+  `evidence/client-classes.log` proves common root, sizing owner and optional
+  client owner load from this exact JAR. Log: `final-client.log`.
+- `python3 ../../runtime/realsize-mod/evidence/client/vanilla-connection.py`:
+  exit **0** on the final JAR. Original Mojang client Main, without Loader or
+  RealSize, joins the packaged server, observes bee `0.25`, golem `1.2` and step
+  `1.2000000476837158`, sees server reload change bee to `0.4`, retains original
+  distance culling, and loses distant tracked entities. Client/server shut down
+  and save normally. As before, a tick-return instrumentation observer makes
+  this **instrumented vanilla**, not uninstrumented player-driven gameplay.
+  Log: `final-vanilla-client.log`; detailed observer evidence stays in `client/`.
+- `python3 ../../runtime/realsize-mod/evidence/final/migration-check.py`:
+  exit **0**. The packaged server actually starts with unversioned legacy JSON,
+  preserves its exact original backup bytes, writes schema 2 without restoring
+  deleted default rules, and gives an actual summoned bee scale `0.4`.
+  A second boot with invalid `floor` never reaches Done, reports
+  `./config/realsize.json: floor: must be positive and finite`, and leaves both
+  invalid config and original backup unchanged. Minecraft's crash shutdown
+  exits **0** here: exit status alone is not startup success. Logs:
+  `final-migration.log`, `legacy-startup.log`, `invalid-startup.log`.
+- `python3 ../../runtime/realsize-mod/evidence/final/uninstall-check.py`:
+  exit **0**. It copies the actual saved GameTest world, then boots/resaves it
+  with the manifest-SHA-1-verified original Mojang 26.3 server JAR and no Fabric
+  or RealSize. Forcing the migrated baby's actual chunk and querying its UUID
+  finds foreign `othermod:scale` still saved, no owned modifiers, SCALE `1.2`,
+  step `0.6`. This tests real uninstall after migration, not just in-memory NBT.
+  Class trace contains no RealSize/Loader. Logs: `final-uninstall.log`,
+  `uninstall-vanilla.log`, `uninstall-classes.log`. The first attempted probe
+  incorrectly used Loom's Fabric-processed common JAR without Fabric and failed
+  class loading; switching to Mojang's original server fixes the harness, not
+  production code. Untouched legacy chunks are still not repaired by uninstall.
+- `python3 ../../runtime/realsize-mod/evidence/final/profile-check.py`:
+  exit **0**, fresh disposable world, **300 actual AI-enabled mobs** (100 each
+  bee/golem/chicken), actual selector count **300 before and after** a 30-second
+  JFR profile. Final recording has **2,426 allocation samples**, **2** with a
+  RealSize frame, both `AttributeInstance.getModifiers -> ImmutableSet.copyOf`
+  in the step-height baseline path. This is sampled evidence, not an exact
+  allocation count/rate or proof of zero allocation. `loaded-mobs.jfr`,
+  `allocations.json`, `allocations-realsize.json`, `final-profile.log` preserve
+  it. An earlier reused-world run counted 316 tagged entities; that is not
+  substituted for the final fresh-world 300-mob workload.
+
+Artifact inspection compared original icon/license bytes exactly, verified
+entrypoints, required bounded common mixins and isolated client config, Java 25
+bytecode, exact 26.3 compatibility and declared Fabric dependencies. No test
+classes/tags ship. The metadata audit found a real stale scaffold description
+claiming gameplay was unimplemented. The packaged assertion failed first:
+`./gradlew test --tests '*ScaffoldTest' --console=plain`, exit **1**, one test /
+one failure (`metadata-red.log/.xml`); updating packaged description then passed
+the full build above. No external listing was edited. Dead-code audit removed
+unused `SpawnSizing.clear`, unused finish-root input and an always-forward
+instruction-walker flag, including the generated call descriptor/stack input.
+Existing transformed natural-placement tests pass those bytecode changes.
+The public attribute API still requires a copied modifier set for the foreign-
+inclusive baseline; no extra server mixin/cache was added to hide that cost.
+
+Workflow action SHAs were read back from official Git tags into `action-pins.json`.
+Checksum-verified `actionlint 1.7.7` reports exit **0** for
+`.github/workflows/build.yml`. A first packaged-client Gradle classpath rewrite
+recursed into itself (`candidate-client.log`, StackOverflowError); freezing the
+original file set and retaining explicit test compilation fixed the harness.
+All final commands above ran after that correction.
+
+**Required manual gameplay remains unaccepted.** A normal, non-GameTest Fabric
+client joined a disposable packaged server and rendered the world/golem. The
+desktop driver's scoped capture failed on X11 `DIRECT_COLOR` and missing
+ImageMagick; FFmpeg window capture worked (`desktop-*.png`). Background T and
+then the driver's escalated foreground T both reported unverifiable delivery;
+fresh screenshots showed no chat, so no movement/combat/menu test was claimed.
+The F3+B attempt likewise produced no verified hitbox overlay. The controller
+was stopped and exited **0**; server saved/stopped. This is an observed desktop
+input limitation, not evidence that gameplay passed or that every other control
+route is impossible. A working input route or a human test session is needed
+for player-driven AI/pathfinding, combat/pen checks and visual disappearance
+measurement. The audit's approximate 12-block claim is still unverified.
+
+Independent exact-diff review, commit/push/read-back and hosted CI are pending
+at this checkpoint. Open RS boxes are not blanket-closed by these automated
+passes. Full validation must remain blocked while its required manual gameplay
+gate is unavailable; no completion, user test-server launch or JAR delivery is
+claimed by this candidate evidence.

@@ -743,6 +743,100 @@ public final class SizingGameTests implements ModInitializer {
         }
     }
 
+    @GameTest
+    public void hostileFloorChangesPassageWithoutPromisingVanillaMobProofing(GameTestHelper helper) throws IOException {
+        var measurements = new StringBuilder();
+        for (var type : List.of(EntityTypes.SPIDER, EntityTypes.CAVE_SPIDER)) {
+            var mob = type.create(helper.getLevel(), EntitySpawnReason.COMMAND);
+            String id = helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE).getKey(type).toString();
+            double vanillaHole = spiderPassage(helper, mob, false);
+            owner(helper, Map.of(id, 0.01)).onLoad(mob);
+            helper.assertTrue(Math.abs(mob.getScale() - 0.6) < 0.00001, "Hostile request must stop at hostile floor");
+            double scaledHole = spiderPassage(helper, mob, false);
+            double scaledSlab = spiderPassage(helper, mob, true);
+            helper.assertTrue(scaledHole > 6.0, "Floor-sized spider must traverse the actual one-block hole");
+            if (type == EntityTypes.SPIDER) {
+                helper.assertTrue(vanillaHole < 3.0 && scaledSlab < 3.0,
+                        "Vanilla spider must fail width-one hole; floor spider must fail half-block clearance");
+            } else {
+                helper.assertTrue(vanillaHole > 6.0 && scaledSlab > 6.0,
+                        "Cave spider must retain narrow passage and fit half-block clearance when shrunk");
+            }
+            measurements.append(id).append(" vanilla width-one=").append(vanillaHole)
+                    .append(" floor width-one=").append(scaledHole).append(" floor half-slab=").append(scaledSlab).append('\n');
+        }
+        Files.writeString(FabricLoader.getInstance().getGameDir().resolve("sizing-evidence/hostile-passage.txt"), measurements);
+        helper.succeed();
+    }
+
+    private static double spiderPassage(GameTestHelper helper, net.minecraft.world.entity.Mob mob, boolean halfSlab) {
+        var level = helper.getLevel();
+        var origin = helper.absolutePos(new BlockPos(128, 5, 128));
+        for (int x = 0; x < 12; x++) {
+            for (int z = 0; z < 3; z++) {
+                level.setBlockAndUpdate(origin.offset(x, -1, z), net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+                for (int y = 0; y < 3; y++) {
+                    var state = (z == 1 ? net.minecraft.world.level.block.Blocks.AIR : net.minecraft.world.level.block.Blocks.STONE).defaultBlockState();
+                    level.setBlockAndUpdate(origin.offset(x, y, z), state);
+                }
+            }
+        }
+        for (int x = 4; x < 7; x++) {
+            level.setBlockAndUpdate(origin.offset(x, halfSlab ? 0 : 1, 1), halfSlab
+                    ? net.minecraft.world.level.block.Blocks.STONE_SLAB.defaultBlockState().setValue(
+                            net.minecraft.world.level.block.SlabBlock.TYPE, net.minecraft.world.level.block.state.properties.SlabType.TOP)
+                    : net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
+        }
+        mob.snapTo(origin.getX() + 1.0, origin.getY(), origin.getZ() + 1.5);
+        mob.refreshDimensions();
+        mob.setNoAi(true);
+        mob.setOnGround(true);
+        double start = mob.getX();
+        for (int i = 0; i < 32; i++) mob.move(net.minecraft.world.entity.MoverType.SELF, new net.minecraft.world.phys.Vec3(0.25, -0.08, 0));
+        return mob.getX() - start;
+    }
+
+    @GameTest
+    public void hostileFloorPreservesTargetAndDamageButChangesActualMeleeReach(GameTestHelper helper) throws IOException {
+        var measurements = new StringBuilder();
+        for (var type : List.of(EntityTypes.SPIDER, EntityTypes.CAVE_SPIDER)) {
+            var mob = type.create(helper.getLevel(), EntitySpawnReason.COMMAND);
+            var player = helper.makeMockPlayer(net.minecraft.world.level.GameType.SURVIVAL);
+            var position = helper.absoluteVec(new net.minecraft.world.phys.Vec3(1, 2, 1));
+            mob.setPos(position);
+            mob.refreshDimensions();
+            double vanillaReach = measuredReach(mob, player);
+            double damage = mob.getAttributeValue(Attributes.ATTACK_DAMAGE);
+            String id = helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE).getKey(type).toString();
+            owner(helper, Map.of(id, 0.01)).onLoad(mob);
+            mob.refreshDimensions();
+            double floorReach = measuredReach(mob, player);
+            helper.assertTrue(floorReach < vanillaReach, "Actual shrunk hitbox must shorten vanilla melee reach");
+            player.setPos(position.add(0.5, 0, 0));
+            mob.setTarget(player);
+            helper.assertTrue(mob.getTarget() == player && mob.canAttack(player) && mob.isWithinMeleeAttackRange(player),
+                    "Actual survival target remains attackable at close range");
+            float before = player.getHealth();
+            helper.assertTrue(mob.doHurtTarget(helper.getLevel(), player) && player.getHealth() < before,
+                    "Actual close-range attack must damage survival target");
+            helper.assertTrue(mob.getAttributeValue(Attributes.ATTACK_DAMAGE) == damage, "RealSize must not alter attack damage");
+            measurements.append(id).append(" vanilla range sample=").append(vanillaReach)
+                    .append(" floor range sample=").append(floorReach).append(" damage=").append(before - player.getHealth()).append('\n');
+        }
+        Files.writeString(FabricLoader.getInstance().getGameDir().resolve("sizing-evidence/hostile-combat.txt"), measurements);
+        helper.succeed();
+    }
+
+    private static double measuredReach(net.minecraft.world.entity.Mob mob, net.minecraft.world.entity.player.Player player) {
+        double last = 0;
+        for (int i = 0; i <= 100; i++) {
+            double distance = i * 0.05;
+            player.setPos(mob.position().add(distance, 0, 0));
+            if (mob.isWithinMeleeAttackRange(player)) last = distance;
+        }
+        return last;
+    }
+
     private static EntitySizing owner(GameTestHelper helper, Map<String, Double> rules) {
         var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, rules);
         return new EntitySizing(ResolvedSettings.resolve(config,

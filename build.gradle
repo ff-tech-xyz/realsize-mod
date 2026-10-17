@@ -100,3 +100,12 @@ tasks.named('jar') {
         rename { licenseName }
     }
 }
+
+// Exercise the installable artifact, not an equivalent set of source outputs.
+tasks.named('runClientGameTest') {
+    dependsOn tasks.named('jar'), tasks.named('gametestClasses')
+    classpath = files(classpath.files).minus(sourceSets.main.output).minus(sourceSets.client.output)
+            .plus(files(tasks.named('jar').flatMap { it.archiveFile }))
+    jvmArgs "-Xlog:class+load=info:file=${file('../../runtime/realsize-mod/evidence/client-classes.log')}"
+    doFirst { file('../../runtime/realsize-mod/evidence').mkdirs() }
+}

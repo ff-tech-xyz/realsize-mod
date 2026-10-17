@@ -29,6 +29,8 @@ class ScaffoldTest {
             }
             assertEquals("realsize", mod.get("id").getAsString());
             assertEquals("1.2.0", mod.get("version").getAsString());
+            assertEquals("Configurable mob sizes and proportional land movement, with an optional client render-distance correction.",
+                    mod.get("description").getAsString());
             assertEquals("*", mod.get("environment").getAsString());
             assertEquals("26.3", mod.getAsJsonObject("depends").get("minecraft").getAsString());
             assertEquals(">=25", mod.getAsJsonObject("depends").get("java").getAsString());

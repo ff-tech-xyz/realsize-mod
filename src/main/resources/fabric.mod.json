@@ -3,7 +3,7 @@
   "id": "realsize",
   "version": "${version}",
   "name": "RealSize",
-  "description": "RealSize v2 rebuild scaffold. Gameplay features are not implemented yet.",
+  "description": "Configurable mob sizes and proportional land movement, with an optional client render-distance correction.",
   "authors": ["PyreHaven"],
   "contact": {
     "sources": "https://github.com/ff-tech-xyz/realsize-mod",

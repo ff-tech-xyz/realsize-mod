@@ -308,7 +308,7 @@ in client metadata/mixin configuration; a dedicated server loads none of it.
 Scaffold tests verify the installation contract before gameplay exists:
 `ScaffoldTest` inspects the real packaged artifact, `ScaffoldGameTests` exercises
 Loader discovery and a vanilla mob on the Minecraft test server, and
-`scripts/server-smoke.py` boots/stops the normal dedicated dev server and checks
+`scripts/server-smoke.py` boots/stops the packaged dedicated server and checks
 its JVM class-load trace for client isolation. GameTest metadata belongs to the
 separate development source set and never ships in the production JAR.
 
@@ -325,8 +325,13 @@ Contact metadata names the actual
 `ff-tech-xyz/realsize-mod` source and issue tracker. Reuse the retained icon and
 license. Modrinth metadata corrections require separately approved deployment.
 
-`runServer` includes the real mod classes. CI builds and tests the same artifact
-with a dedicated-server boot and real Minecraft GameTests. No empty `NO-SOURCE`
+`runServer` includes the real mod classes. The packaged smoke probe excludes
+production source outputs and test mods, then checks JAR class-load provenance.
+`runClientGameTest` also excludes production source outputs while retaining the
+separate development tests; its integrated and dedicated connections exercise
+the JAR's common and client owners. CI builds and tests that artifact with
+nonempty JUnit/server GameTests, packaged dedicated boot and Xvfb client checks,
+and retains the tested JAR and SHA-256 without a release. No empty `NO-SOURCE`
 result counts as behavioral verification; no 1.21 compatibility range is claimed.
 
 ## Implementation phases

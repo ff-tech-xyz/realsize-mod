@@ -39,7 +39,7 @@ public final class SpawnPlacementPlugin implements IMixinConfigPlugin {
     }
 
     private static void addRejectionEdge(MethodNode method, MethodInsnNode call) {
-        AbstractInsnNode next = executable(call.getNext(), true);
+        AbstractInsnNode next = executable(call.getNext());
         if (!(next instanceof VarInsnNode store) || store.getOpcode() != Opcodes.ASTORE) {
             throw new IllegalStateException("RealSize finalization result is not a direct group assignment");
         }
@@ -49,8 +49,8 @@ public final class SpawnPlacementPlugin implements IMixinConfigPlugin {
                 || (guard.getOpcode() != Opcodes.IFEQ && guard.getOpcode() != Opcodes.GOTO)) {
             throw new IllegalStateException("RealSize finalization has no candidate obstruction failure branch");
         }
-        AbstractInsnNode start = executable(guard.getNext(), true);
-        AbstractInsnNode level = executable(start.getNext(), true);
+        AbstractInsnNode start = executable(guard.getNext());
+        AbstractInsnNode level = executable(start.getNext());
         if (!(start instanceof VarInsnNode mobLoad) || mobLoad.getOpcode() != Opcodes.ALOAD
                 || !(level instanceof VarInsnNode levelLoad) || levelLoad.getOpcode() != Opcodes.ALOAD) {
             throw new IllegalStateException("RealSize finalization receiver/level locals changed");
@@ -66,18 +66,17 @@ public final class SpawnPlacementPlugin implements IMixinConfigPlugin {
         method.instructions.insertBefore(start, begin);
         var edge = new InsnList();
         edge.add(new VarInsnNode(Opcodes.ASTORE, temporary));
-        edge.add(new VarInsnNode(Opcodes.ALOAD, mobLoad.var));
         edge.add(new VarInsnNode(Opcodes.ALOAD, levelLoad.var));
         edge.add(new MethodInsnNode(Opcodes.INVOKESTATIC, "xyz/pyrehaven/realsize/sizing/SpawnPreparation", "finish",
-                "(Lnet/minecraft/world/entity/Mob;Lnet/minecraft/world/level/ServerLevelAccessor;)Z", false));
+                "(Lnet/minecraft/world/level/ServerLevelAccessor;)Z", false));
         edge.add(new JumpInsnNode(Opcodes.IFEQ, guard.label));
         edge.add(new VarInsnNode(Opcodes.ALOAD, temporary));
         method.instructions.insert(call, edge);
     }
 
-    private static AbstractInsnNode executable(AbstractInsnNode instruction, boolean forwards) {
+    private static AbstractInsnNode executable(AbstractInsnNode instruction) {
         while (instruction != null && instruction.getOpcode() < 0) {
-            instruction = forwards ? instruction.getNext() : instruction.getPrevious();
+            instruction = instruction.getNext();
         }
         return instruction;
     }

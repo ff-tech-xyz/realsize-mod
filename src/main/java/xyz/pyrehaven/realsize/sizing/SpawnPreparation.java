@@ -121,7 +121,7 @@ public final class SpawnPreparation {
         effects.forEach(Runnable::run);
     }
 
-    public static boolean finish(Mob root, ServerLevelAccessor level) {
+    public static boolean finish(ServerLevelAccessor level) {
         var preparation = current();
         if (preparation.clear(level)) {
             preparation.commit();
