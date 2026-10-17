@@ -12,13 +12,16 @@ One Fabric project targets Minecraft 26.3 and Java 25. The same JAR provides
 server-owned mob sizing and an optional, isolated client rendering correction.
 Vanilla clients can join. The server has no RealSize tracking hooks or tracking
 mixins, custom networking, or client-required registries. Its only permitted
-server mixins adapt only the existing early type-bounds checks in `NaturalSpawner`
+spawn mixins adapt only the existing early type-bounds checks in `NaturalSpawner`
 and `SpawnUtil` to the configured adult scale. Elijah's correction in Discord
 `1561148464233054261` supersedes the former finalization/containment design.
 Vanilla keeps its check order, retries, collision-check toggle and finalization.
 Babies, variants and riders do not trigger a new check after finalization.
 `EntitySizing` owns the adult-scale calculation; no entity-load veto or tracking
 replacement is added.
+One server-side baby-state adapter observes changed baby metadata on AgeableMob,
+Zombie, Piglin and Zoglin and delegates loaded entities to EntitySizing. It does
+not poll worlds or change vanilla age progression, speed, or animation state.
 The client component does
 not invent entities outside vanilla server tracking.
 
@@ -61,6 +64,7 @@ realsize-mod/
     │   │   │   ├── DefaultScales.java
     │   │   │   └── ResolvedSettings.java
     │   │   ├── mixin/
+    │   │   │   ├── BabyStateMixin.java
     │   │   │   ├── SpawnUtilMixin.java
     │   │   │   └── NaturalSpawnerMixin.java
     │   │   └── sizing/
@@ -83,7 +87,8 @@ realsize-mod/
     │       └── sizing/SizingPolicyTest.java
     └── gametest/
         ├── java/xyz/pyrehaven/realsize/
-        │   ├── ScaffoldGameTests.java
+        │       ├── ScaffoldGameTests.java
+        │       ├── LifecycleGameTests.java
         │   ├── ResolvedSettingsGameTests.java
         │   ├── SizingGameTests.java
         │   ├── SpawnGameTests.java
@@ -143,7 +148,7 @@ retained on disk. Invalid syntax, non-finite/nonpositive scales, incompatible
 floors/cap, and invalid step limits are errors, not replacements.
 
 Legacy migration preserves explicit entity entries, translates the scale bounds,
-adds the v2 hostile floor and proportional movement settings, and removes old
+adds an explicit hostile floor equal to the legacy floor and proportional movement settings, and removes old
 tracking and flat-step fields with an explicit migration diagnostic. It does
 not pretend those obsolete fields still affect behavior. A validated migration
 backs up the original before atomic replacement; failure leaves it intact.
@@ -162,13 +167,17 @@ with stable IDs. It never changes base attributes or foreign modifiers.
 Neutral `1.0`, deleted rules, and excluded entities remove owned modifiers
 instead of returning early. Repeated reconciliation is idempotent.
 
-The default lower bound is `0.22`; hostiles use at least `0.6`; the upper bound
-is `1.45`. These are v2 target defaults, not observations of tested gameplay.
+The default lower bound is `0.22` for both ordinary and hostile mobs; the upper
+bound is `1.45`. First-run scales retain v1's table, including the raw cave spider
+rule `0.20` (effective `0.22` after the floor). A higher hostile floor is opt-in,
+not a silent change to v1's default sizes. Existing v2 files remain authoritative.
 For active non-neutral rules, the floor measures final size against unscaled
 adult type dimensions, so baby factors cannot compound below it. Neutral `1.0`
 and absent rules take precedence: they remove owned modifiers and preserve
 vanilla baby size, even below a category floor. Growth recalculates the owned modifier through
-the same owner. Foreign modifiers remain untouched; another mod deliberately
+the same owner when baby metadata changes; there is no every-tick entity scan.
+Only loaded server entities are reconciled by the adapter; construction and disk
+load are handled by the entity-load callback. Foreign modifiers remain untouched; another mod deliberately
 changing final size is outside RealSize's guaranteed bounds and is diagnosed
 when it prevents the contract from being met.
 
@@ -193,9 +202,10 @@ The cap also remains below `1.5` after Minecraft's float conversion: a configure
 double closer to `1.5` than a float can represent uses `Math.nextDown(1.5f)` as
 the effective owned ceiling. A total attribute multiplier applies only the
 effective difference from the foreign-inclusive baseline; an additive amount
-would itself be multiplied by foreign modifiers. The owner computes baseline
-with Minecraft's operation order/sanitization, excluding its stable step ID,
-without dirtying an unchanged live modifier. Aquatic exclusions include water
+would itself be multiplied by foreign modifiers. On lifecycle changes the owner
+removes its stable step modifier, reads Minecraft's effective attribute value,
+then applies the new modifier. It does not duplicate attribute mathematics.
+Aquatic exclusions include water
 categories and aquatic families whose categories are MONSTER/MISC (guardians,
 nautiluses, and fish including tadpoles). A higher foreign/vanilla baseline is
 still preserved, including a camel's vanilla `1.5` step.
