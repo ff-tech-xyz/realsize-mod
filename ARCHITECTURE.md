@@ -61,11 +61,21 @@ realsize-mod/
     │   │   │   └── ResolvedSettings.java
     │   │   ├── mixin/
     │   │   │   ├── SpawnUtilMixin.java
-    │   │   │   └── NaturalSpawnerMixin.java
+    │   │   │   ├── NaturalSpawnerMixin.java
+    │   │   │   ├── SpawnPlacementPlugin.java
+    │   │   │   ├── AgeableSpawnMixin.java
+    │   │   │   ├── FishSpawnMixin.java
+    │   │   │   ├── ChickenSpawnMixin.java
+    │   │   │   ├── ZombieSpawnMixin.java
+    │   │   │   ├── HuskSpawnMixin.java
+    │   │   │   ├── SpawnConstructionMixin.java
+    │   │   │   ├── SpawnEffectMixin.java
+    │   │   │   └── SpawnMountAccess.java
     │   │   └── sizing/
     │   │       ├── SizingPolicy.java
     │   │       ├── EntitySizing.java
-    │   │       └── SpawnSizing.java
+    │   │       ├── SpawnSizing.java
+    │   │       └── SpawnPreparation.java
     │   └── resources/
     │       ├── fabric.mod.json
     │       ├── realsize.spawn.mixins.json
@@ -86,9 +96,19 @@ realsize-mod/
         │   ├── ScaffoldGameTests.java
         │   ├── ResolvedSettingsGameTests.java
         │   ├── SizingGameTests.java
-        │   └── SpawnGameTests.java
+        │   ├── SpawnGameTests.java
+        │   ├── SpawnPreparationGameTests.java
+        │   ├── ChunkSpawnGameTests.java
+        │   ├── SpawnDimensionGameTests.java
+        │   ├── NaturalSpawnProbe.java
+        │   └── testmixin/
+        │       ├── NaturalSpawnProbeMixin.java
+        │       ├── OuterSpawnProbeMixin.java
+        │       ├── CreatedSpawnProbeMixin.java
+        │       └── SpawnEventProbeMixin.java
         └── resources/
             ├── fabric.mod.json
+            ├── realsize-test.mixins.json
             └── data/realsize-test/tags/entity_type/
                 ├── only_bee.json
                 ├── mixed.json
