@@ -65,6 +65,7 @@ realsize-mod/
     │   │   │   └── ResolvedSettings.java
     │   │   ├── mixin/
     │   │   │   ├── BabyStateMixin.java
+    │   │   │   ├── TurnRateMixin.java
     │   │   │   ├── SpawnUtilMixin.java
     │   │   │   └── NaturalSpawnerMixin.java
     │   │   └── sizing/
@@ -78,7 +79,9 @@ realsize-mod/
     ├── client/
     │   └── java/xyz/pyrehaven/realsize/client/
     │       ├── RealSizeClient.java
-    │       └── mixin/EntityRenderDistanceMixin.java
+    │       └── mixin/
+    │           ├── EntityRenderDistanceMixin.java
+    │           └── WalkTempoMixin.java
     ├── test/
     │   └── java/xyz/pyrehaven/realsize/
     │       ├── ScaffoldTest.java
@@ -89,6 +92,7 @@ realsize-mod/
         ├── java/xyz/pyrehaven/realsize/
         │   ├── ScaffoldGameTests.java
         │   ├── LifecycleGameTests.java
+        │   ├── TurningGameTests.java
         │   ├── ResolvedSettingsGameTests.java
         │   ├── SizingGameTests.java
         │   ├── SpawnGameTests.java
@@ -235,6 +239,26 @@ verification in FIXES.md is historical evidence for a superseded design, not a
 requirement to restore it.
 
 ## Client rendering
+
+Shrunk mobs use an optional client-local walk rhythm correction. The required
+`WalkTempoMixin` changes only the position-scale argument of the vanilla
+`LivingEntity.updateWalkAnimation(F)V` call to `WalkAnimationState.update(FFF)V`:
+`min(vanillaTempo / getScale(), 6)`, only for positive scales below one and
+only for mobs. Attribute scale excludes the age factor; vanilla's baby tempo
+is already in the argument and is not applied twice. Swing amplitude, smoothing,
+movement speed, players and neutral/enlarged entities stay vanilla.
+`clientWalkTempoFix` defaults to true, including when absent in older v2 files;
+an explicit value must be boolean. It shares the existing validated local reload
+without replacing the server snapshot. Invalid reloads retain both active options.
+Vanilla clients retain vanilla leg rhythm; no server animation packets are added.
+
+The common required `TurnRateMixin` limits only the argument to the existing
+`MoveControl.tick()` yaw interpolation to `min(vanillaLimit, 35)` for shrunk
+server mobs. Neutral/enlarged mobs, client-side control, other control methods
+and movement speed are unchanged. Specialized controls overriding tick without
+calling this implementation are not covered. `TurningGameTests` verifies actual
+transformed yaw, speed preservation and small-spider navigation. No entity state
+map, controller replacement or every-tick sizing reconciliation is introduced.
 
 The optional client mixin corrects distance culling using unscaled dimensions
 for shrinking entities, without shortening vanilla distance for enlarged ones.
