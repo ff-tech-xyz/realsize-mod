@@ -1,0 +1,79 @@
+name: Verify RealSize
+
+on:
+  push:
+    branches: ['update/V.1.2.0', 'main']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: realsize-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: workspaces/realsize-mod
+        shell: bash
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          path: workspaces/realsize-mod
+          persist-credentials: false
+      - uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: '25.0.4+7.0.LTS'
+      - name: Build and run server and policy tests
+        run: |
+          set -euo pipefail
+          mkdir -p ../../runtime/realsize-mod/evidence
+          ./gradlew --no-daemon clean build --console=plain 2>&1 | tee ../../runtime/realsize-mod/evidence/ci-build.log
+          sha256sum ../../runtime/realsize-mod/build/libs/realsize-1.2.0.jar > ../../runtime/realsize-mod/evidence/artifact.sha256
+      - name: Boot the packaged dedicated server
+        run: python3 scripts/server-smoke.py
+      - name: Exercise the packaged client in single-player and multiplayer
+        run: |
+          set -euo pipefail
+          xvfb-run -a ./gradlew --no-daemon runClientGameTest --console=plain 2>&1 | tee ../../runtime/realsize-mod/evidence/ci-client.log
+      - name: Require nonempty suites and packaged class provenance
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          runtime = Path('../../runtime/realsize-mod').resolve()
+          reports = list((runtime / 'build/test-results/test').glob('TEST-*.xml'))
+          assert reports, 'Missing JUnit reports'
+          for paths in (reports, [runtime / 'run/gameTest/gametest-results.xml']):
+              cases = [c for p in paths for c in ET.parse(p).getroot().iter('testcase')]
+              assert cases, 'Empty behavioral suite'
+              assert all(c.find('failure') is None and c.find('error') is None and c.find('skipped') is None for c in cases)
+              print(f'PASS {len(cases)} cases, no failures/errors/skips')
+          log = (runtime / 'evidence/ci-client.log').read_text()
+          assert log.count('REALSIZE CLIENT PASS:') == 2
+          assert log.count('REALSIZE CLIENT TRACKING PASS:') == 2
+          loaded = (runtime / 'evidence/client-classes.log').read_text()
+          for name in ('RealSizeMod', 'client.RealSizeClient', 'sizing.EntitySizing'):
+              assert f'xyz.pyrehaven.realsize.{name} source: file:{runtime}/build/libs/realsize-1.2.0.jar' in loaded
+          print('PASS client loaded the packaged common/client owners')
+          PY
+          sha256sum -c ../../runtime/realsize-mod/evidence/artifact.sha256
+      - name: Retain the tested JAR and verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: realsize-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            runtime/realsize-mod/build/libs/*.jar
+            runtime/realsize-mod/build/test-results/test/*.xml
+            runtime/realsize-mod/run/gameTest/gametest-results.xml
+            runtime/realsize-mod/evidence/*.log
+            runtime/realsize-mod/evidence/artifact.sha256

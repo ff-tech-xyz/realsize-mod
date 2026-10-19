@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "realsize-test",
+  "version": "1.0.0",
+  "name": "RealSize development tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-client-gametest": ["xyz.pyrehaven.realsize.ClientRenderGameTests"],
+    "main": ["xyz.pyrehaven.realsize.SizingGameTests", "xyz.pyrehaven.realsize.SpawnGameTests"],
+    "fabric-gametest": [
+      "xyz.pyrehaven.realsize.ScaffoldGameTests",
+      "xyz.pyrehaven.realsize.LifecycleGameTests",
+      "xyz.pyrehaven.realsize.TurningGameTests",
+      "xyz.pyrehaven.realsize.ResolvedSettingsGameTests",
+      "xyz.pyrehaven.realsize.SizingGameTests",
+      "xyz.pyrehaven.realsize.SpawnGameTests",
+      "xyz.pyrehaven.realsize.ChunkSpawnGameTests",
+      "xyz.pyrehaven.realsize.SpawnDimensionGameTests"
+    ]
+  },
+  "mixins": ["realsize-test.mixins.json"],
+  "depends": {
+    "realsize": "*",
+    "fabric-gametest-api-v1": "*"
+  }
+}

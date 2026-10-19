@@ -1,5 +1,5 @@
 plugins {
-    id 'base'
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
 }
 
 group = project.maven_group
@@ -9,15 +9,103 @@ base {
     archivesName = project.archives_base_name
 }
 
-allprojects {
-    group = rootProject.group
-    version = rootProject.version
+layout.buildDirectory = file('../../runtime/realsize-mod/build')
+
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        realsize {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+    runs {
+        server {
+            programArg 'nogui'
+        }
+    }
 }
 
-tasks.named('build') {
-    dependsOn(':common:test', ':mc121:build', ':mc2612:build')
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'realsize-test'
+        enableGameTests = true
+        enableClientGameTests = true
+        eula = true
+    }
 }
 
-tasks.register('checkAll') {
-    dependsOn(':common:test', ':mc121:check', ':mc2612:check')
+// Apply after configureTests, which supplies its own checkout-local run directory.
+loom.runs.configureEach {
+    runDirectory.set(file("../../runtime/realsize-mod/run/${name}"))
+}
+
+loom.runs.gameTest {
+    property 'fabric-api.gametest.report-file',
+            file('../../runtime/realsize-mod/run/gameTest/gametest-results.xml').absolutePath
+}
+
+loom.runs.clientGameTest {
+    property 'mixin.debug.export', 'true'
+    property 'mixin.debug.countInjections', 'true'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    testImplementation "net.fabricmc:fabric-loader-junit:${project.loader_version}"
+    testRuntimeOnly "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 25
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+    dependsOn tasks.named('jar')
+    inputs.file(tasks.named('jar').flatMap { it.archiveFile })
+    systemProperty 'realsize.test.jar', tasks.named('jar').get().archiveFile.get().asFile.absolutePath
+    systemProperty 'realsize.test.project', projectDir.absolutePath
+    def testTemp = file('../../runtime/realsize-mod/test-temp')
+    systemProperty 'java.io.tmpdir', testTemp.absolutePath
+    doFirst { testTemp.mkdirs() }
+}
+
+tasks.named('processResources') {
+    def metadata = [version: project.version, minecraft_version: project.minecraft_version,
+                    loader_version: project.loader_version, fabric_api_version: project.fabric_api_version]
+    inputs.properties metadata
+    filesMatching('fabric.mod.json') {
+        expand metadata
+    }
+    from('branding/icon.png') {
+        into 'assets/realsize'
+    }
+}
+
+tasks.named('jar') {
+    def licenseName = "LICENSE_${project.archives_base_name}"
+    from('LICENSE') {
+        rename { licenseName }
+    }
+}
+
+// Exercise the installable artifact, not an equivalent set of source outputs.
+tasks.named('runClientGameTest') {
+    dependsOn tasks.named('jar'), tasks.named('gametestClasses')
+    classpath = files(classpath.files).minus(sourceSets.main.output).minus(sourceSets.client.output)
+            .plus(files(tasks.named('jar').flatMap { it.archiveFile }))
+    jvmArgs "-Xlog:class+load=info:file=${file('../../runtime/realsize-mod/evidence/client-classes.log')}"
+    doFirst { file('../../runtime/realsize-mod/evidence').mkdirs() }
 }
