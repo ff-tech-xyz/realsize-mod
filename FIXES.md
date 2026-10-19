@@ -1,5 +1,42 @@
 # RealSize v2 fixes and acceptance
 
+## 2026-10-19 — Release documentation and screenshots
+
+Elijah reported the mod ready for release in Discord message
+`1561801634173034536` and requested release documentation plus a PR to main.
+This supersedes the earlier pending player decision for release preparation;
+it is user-reported acceptance, not a claim that every historical profiling,
+combat or third-party compatibility check below has now been performed.
+He separately approved one read-only release reviewer for the current branch.
+
+Added CHANGELOG.md for artifact version 1.2.0 (the v2 rebuild), and GALLERY.md
+with seven selected screenshots covering all distinct submitted scenes. Basic
+animal titles identify each scene. Giant spider and miniature polar bears are
+explicit custom-config examples, with no invented screenshot config values.
+The selected images are resized to 2560×1440 JPEG with no color/brightness edits.
+README links both pages alongside the configuration reference. No version,
+source behavior, Modrinth text, official release or production state changed.
+
+Fresh local verification:
+
+- `./gradlew clean build --console=plain`: BUILD SUCCESSFUL; all 35 required
+  Minecraft GameTests passed.
+- `python3 scripts/server-smoke.py`: packaged dedicated server reached Done,
+  saved, exited 0, and loaded no RealSize/Minecraft client classes.
+- `xvfb-run -a ./gradlew runClientGameTest --console=plain`: BUILD SUCCESSFUL;
+  client and tracking probes passed in integrated and dedicated TCP modes.
+- `./gradlew test --rerun-tasks --console=plain`: BUILD SUCCESSFUL; parsed
+  23 JUnit cases and 35 Minecraft cases, zero failures/errors/skips. XML copies
+  are retained beside the release-preparation logs.
+- Five current guides passed relative-link/anchor, JSON-example and balanced-fence
+  checks; all seven gallery image files decode successfully.
+
+Evidence: `runtime/realsize-mod/evidence/release-prep/`.
+Packaged JAR SHA-256:
+`61fda8b33c47d3836ad6c1bf5763b1012e0ecfb0b282e6b88a8312048eae482f`.
+Independent review and exact-head hosted CI are recorded separately once observed.
+Historical unchecked items below are not silently marked complete by this docs pass.
+
 ## 2026-10-19 — Unlisted and modded mob configuration
 
 Clarified README and CONFIGURATION: generated defaults are selected size choices,

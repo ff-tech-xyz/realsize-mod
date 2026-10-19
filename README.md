@@ -1,5 +1,7 @@
 # RealSize
 
+[Gallery](GALLERY.md) · [Configuration](CONFIGURATION.md) · [Release notes](CHANGELOG.md)
+
 RealSize changes the size of Minecraft mobs to give familiar creatures more
 believable proportions. Bees are tiny, spiders are smaller, and iron golems
 are larger. These are actual size changes, including hitboxes, not just smaller
