@@ -1,70 +1,41 @@
 # Configuring RealSize
 
-[Back to the player guide](README.md)
+[README](README.md) · [Default sizes](#default-sizes)
 
-Size rules belong to the server, or to the integrated server in single-player.
-Players joining a server cannot override its mob sizes with a local file.
-The optional visibility setting belongs to each player's client.
+For server owners and single-player users. Size settings go in that
+installation's `config/realsize.json`; client options use each player's local file.
 
 ## Change a mob's size
 
-1. Start the server or open a single-player world once to create
-   `config/realsize.json` in that installation's game directory.
-2. Back up the file, then find the mob under `entityScales`.
-3. Change its value and save. For example, change `minecraft:bee` from `0.25`
-   to `0.4` for larger bees that are still smaller than vanilla bees.
-4. Run `/realsize reload` as an operator with permission level 2, or run
-   `realsize reload` in the server console. In single-player, enable cheats
-   to use the command. Restarting also loads the file.
+1. Start the server or open a world once to generate `config/realsize.json`.
+2. Find the mob under `entityScales`, change its value and save.
+3. Run `/realsize reload` with operator permission level 2, or `realsize reload`
+   in the server console. In single-player, enable cheats. Restarting also works.
 
-Loaded mobs update when the command succeeds. Mobs in unloaded chunks use the
-new settings when those chunks load; reloading does not load the whole world.
-The success message is `RealSize reloaded; loaded mobs reconciled.`
+Loaded mobs update immediately; other mobs update when their chunks load.
+A failed reload reports the problem and keeps the previous settings.
 
-A scale measures each linear dimension, not volume: `0.5` means half the normal
-width and height. `1.0` disables RealSize sizing for that rule; `1.2` requests
-20% larger dimensions. Floors and the cap limit active non-neutral rules.
-Minecraft's own age and variant sizes still matter.
-
-To stop resizing a type, set an exact rule to `1.0`. Deleting its rule also
-works if no remaining tag rule selects that type. An empty `entityScales` map
-disables all configured sizing. Deleted default rules are not added back.
+Values scale width and height: `0.5` is half size, `1.2` is 20% larger.
+Baby and variant sizes still apply, subject to the size limits below.
+Set an exact rule to `1.0` to leave that type at its normal size.
+Deleting a rule works too, unless a tag still selects that type.
+Deleted defaults stay deleted; an empty `entityScales` map disables sizing.
 
 ## Add a mob that is not listed
 
-The generated list is a set of default size choices, **not every mob in Minecraft
-26.3 and not a whitelist**. You can add an entry for any registered mob, including
-mobs added by other mods, inside `entityScales`. Use its full entity-type ID:
-`minecraft:mob_name` for vanilla mobs or `modid:mob_name` for modded mobs.
+Add its full entity ID under `entityScales`, then reload. For example,
+`"minecraft:cow": 0.8` makes cows smaller. Mobs added by mods use the same syntax,
+with their mod's namespace and entity name.
 
-For example, add `"minecraft:cow": 0.8` alongside your existing rules to make cows
-smaller. A modded entry uses the same syntax, such as `"examplemod:forest_deer": 0.8`;
-that ID is an illustration, so replace it with the actual ID from the installed
-mod. Keep commas between entries, save the file, then run `/realsize reload`.
-You do not need to replace the whole map or change RealSize's source code.
-
-**If no exact entry or configured tag matches a mob, RealSize does not resize it
-or apply its proportional step-height adjustment.** Its normal size, including
-baby and variant differences and other mods' adjustments, remains untouched.
-Deleting a rule does not restore its default on the next load. If a tag still
-selects the mob, use an exact `1.0` entry to opt that mob out of the tag rule.
-Legacy RealSize saved modifiers are still cleaned on load as described in the
-[player guide](README.md#existing-worlds-and-removing-the-mod).
-
-The mob's mod must be installed on the server or single-player installation.
-An unknown ID produces a warning rather than applying to a different mob.
-Players and non-living entities are excluded; modded mob support still depends
-on the mob exposing the living attributes RealSize uses. It does not promise
-compatibility with custom sizing or spawning logic from every mod.
+The generated list contains the default choices, not every supported mob.
+Types without an exact rule or matching tag keep their normal size and step height.
+Players and non-living entities are excluded; selected living entities need a
+scale attribute. Unknown IDs produce a warning in the log.
 
 ## Configuration file and options
 
-The file is authoritative. Defaults are written only when the file is missing;
-entries deleted from an existing `entityScales` map are not silently restored.
-A versioned migration writes an updated schema only after successful validation,
-preserving a backup of the original. Unknown IDs/tags produce named warnings,
-and malformed values fail with the field and file path rather than silently
-substituting a value.
+This example uses a few custom rules. For the generated rules, see
+[default sizes](#default-sizes).
 
 ```json
 {
@@ -84,95 +55,75 @@ substituting a value.
 }
 ```
 
-This is a short custom configuration, not the complete generated default table.
-The generated defaults cover the mob types listed below.
-Both floors default to `0.22`; a higher `hostileFloor` is opt-in. Hostile entries
-cannot bypass that configured bound. Existing v2 files are not rewritten. To reset to defaults, stop the server,
-move the old file somewhere safe, and start the server again. This resets all
-RealSize settings, not just one rule.
+- `configVersion`: `2`, the current file format.
+- `floor`: minimum size relative to the type's normal adult dimensions, including
+  baby scaling. Default: `0.22`.
+- `hostileFloor`: the minimum for monster-category mobs. Must be at least `floor`.
+  Default: `0.22`.
+- `cap`: maximum size relative to normal adult dimensions. Must be at least both
+  floors. Default: `1.45`.
+- `proportionalStepHeight`: lets larger land mobs step over taller terrain.
+  Default: `true`.
+- `maxStepHeight`: ceiling for that step-height increase, in blocks. Must be
+  below `1.5`; an already higher step height is preserved. Default: `1.49`.
+- `entityScales`: size rules keyed by entity IDs or `#tag` selectors.
 
-- `floor` and `hostileFloor` set minimum final size relative to the entity type's
-  unscaled adult size, including baby scaling, for active non-neutral rules.
-  Neutral `1.0` and absent rules bypass these limits and remove owned modifiers.
-  The hostile minimum is at least `floor`. `cap` sets the maximum.
-- `proportionalStepHeight` enables land-mob proportional movement.
-  `maxStepHeight` is below `1.5`; existing vanilla or foreign-mod step height is
-  never lowered to satisfy this cap.
-- `clientRenderDistanceFix` controls the optional client component in that
-  client's local configuration. Server configuration does not toggle clients.
-  Edit the local file and run `/realsize-client reload` to apply that option
-  without restarting. Invalid reloads retain the previous option. This command
-  does not apply server sizing rules; integrated-server sizing still uses
-  `/realsize reload` separately.
-- `clientWalkTempoFix` controls the optional client correction for the walking
-  animation rhythm of resized mobs. Tempo is `min(vanilla tempo / actual attribute
-  scale, 6)`: smaller mobs cycle faster and larger mobs slower. The attribute
-  scale already reflects the server's current rule and other scale modifiers;
-  vanilla baby tempo is preserved without applying age twice. It defaults to
-  `true`, including when omitted
-  from older v2 files. Edit the local file and run `/realsize-client reload` to
-  apply it. It does not change movement speed or the server sizing rules.
-- `entityScales` accepts exact entity IDs and `#tag` selectors. Exact IDs win;
-  conflicting tags are rejected rather than relying on map iteration order.
-  Players and non-living entities are excluded.
+The floors and cap apply to active resizing rules; absent rules and `1.0` bypass
+them. For example, the default cave-spider rule of `0.20` reaches the `0.22` floor.
 
-Use ordinary JSON: no comments, trailing commas, or duplicate keys. Numbers
-and booleans must not be quoted. Scales are positive and finite. Floors cannot
-exceed the cap. Apart from the optional `clientWalkTempoFix`, missing required
-v2 fields are validation errors; legacy files go through the explicit migration
-instead of an implicit default merge.
+Use JSON without comments, trailing commas or duplicate keys. Numbers must be
+positive and finite. All fields are required except `clientWalkTempoFix`, which
+falls back to `true` in older v2 files. Unknown fields and invalid values are
+reported by name. An invalid config prevents startup; fix the reported field.
 
-## Upgrading an older configuration
+To restore all defaults, stop the server, move the config aside and restart.
 
-Back up the world and configuration before upgrading.
+## Client options
 
-The supported legacy input is the old unversioned JSON object. It must contain
-`floor`, `cap`, and `entityScales`; the old tracking and flat-step fields are
-optional, validated if present, and removed with a named migration diagnostic.
-Migration retains the explicit map, sets `hostileFloor` to the legacy `floor`,
-enables proportional movement and the local rendering option, and uses `1.49`
-for `maxStepHeight`. Incompatible bounds fail rather than silently changing
-`cap`. A v2-shaped file missing `configVersion` is an error, not legacy input.
-Other version numbers are unsupported.
+Edit these in your client's `config/realsize.json`, then run
+`/realsize-client reload`:
 
-The exact original bytes are saved as `realsize.json.legacy.bak` before atomic
-replacement. An existing backup blocks migration rather than being overwritten;
-inspect and move it before retrying. If atomic replacement is unsupported, the
-operation fails without a non-atomic fallback. Valid v2 files are read without
-rewriting. Duplicate keys, unknown top-level fields, string-coerced numbers or
-booleans, and symbolic-link config paths are rejected with named diagnostics.
+- `clientRenderDistanceFix`: uses normal-sized dimensions for tiny mobs' render
+  distance, within the server's tracking range. Default: `true`.
+- `clientWalkTempoFix`: adjusts walking-animation rhythm to the mob's scale.
+  Smaller mobs cycle faster and larger mobs slower. Default: `true`.
 
-`/realsize reload` requires permission level 2. A successful reload replaces
-one validated settings snapshot and reconciles loaded mobs on the server thread.
-A failed reload leaves the previous snapshot and mobs unchanged and reports
-what to fix. The startup equivalent fails rather than running silently on a
-bad file. Neither path rewrites an invalid file.
+Set either to `false` to disable it. These are local options; single-player size
+changes still use `/realsize reload`.
 
 ## Selecting mobs with tags
 
-An exact rule such as `"minecraft:bee": 0.4` takes priority over tags.
-A rule such as `"#minecraft:skeletons": 0.8` applies to eligible members of
-that entity-type tag, including datapack-defined membership.
+Use `"#minecraft:skeletons": 0.8` to resize members of that entity-type tag.
+Datapacks can define tags or change their membership.
 
-Overlapping tags with the same value are allowed. Different values for the same
-eligible type are rejected unless an exact rule resolves that overlap. Unknown
-well-formed IDs or tags produce warnings naming the selector; they are not
-replaced with another mob. Players and non-living entities cannot be selected.
-Other living entities, such as armor stands, can be selected if they have the
-relevant attributes. Modded types can be named by their own namespace, but this
-is not a guarantee of compatibility with every mod's sizing or spawning logic.
+Exact IDs take priority over tags. To exclude bees from a tag rule, add
+`"minecraft:bee": 1.0`. Overlapping tags may use the same value; conflicting
+values need an exact rule to resolve them or the reload fails.
 
-A successful Minecraft datapack reload refreshes tag selections using the
-already active RealSize settings. It does not read unsaved or unapplied config
-edits; use `/realsize reload` for changes to this file. If new tags conflict,
-RealSize keeps its previous sizing snapshot and logs the conflict. It does not
-roll back Minecraft's datapack changes.
+Minecraft's datapack reload refreshes tag selections using the active RealSize
+settings. If the new tags conflict, RealSize logs the problem and retains its
+previous selections. Use `/realsize reload` to read config-file edits.
+
+## Upgrading an older configuration
+
+Back up your world and config before upgrading.
+
+RealSize migrates the old unversioned config automatically. It preserves your
+size rules, sets `hostileFloor` to the old `floor`, enables proportional movement
+and both client fixes, and sets `maxStepHeight` to `1.49`. Obsolete tracking and
+flat-step settings are removed.
+
+The original file is saved as `realsize.json.legacy.bak`. If that backup already
+exists, inspect it and move it before retrying. Invalid files are left unchanged;
+check the log for the field that needs fixing. Current v2 files are read as-is.
+
+Older versions also saved permanent mob attributes. Keep RealSize installed until
+affected chunks have loaded and been saved before uninstalling; cleanup happens
+as mobs load. There is no whole-world cleanup command.
 
 ## Default sizes
 
-These are the rules generated on first run, not random ranges. Each type uses
-its own rule. Values are relative to that type's normal size, not to a common
-height shared by all mobs. Unlisted types have no RealSize rule.
+Values are relative to each type's normal size. Unlisted types have no rule.
 
 - `minecraft:spider`: `0.26`.
 - `minecraft:cave_spider`: `0.20` (effective adult size `0.22` with the default floor).
