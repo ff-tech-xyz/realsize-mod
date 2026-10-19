@@ -66,10 +66,13 @@ class ScaffoldTest {
                 assertTrue(clientMixins.get("required").getAsBoolean());
                 assertFalse(clientMixins.has("mixins"), "No common client adapters");
                 assertEquals(1, clientMixins.getAsJsonObject("injectors").get("defaultRequire").getAsInt());
-                assertEquals(1, clientMixins.getAsJsonArray("client").size());
+                assertEquals(2, clientMixins.getAsJsonArray("client").size());
                 assertEquals("EntityRenderDistanceMixin", clientMixins.getAsJsonArray("client").get(0).getAsString());
                 assertNotNull(jar.getEntry(clientMixins.get("package").getAsString().replace('.', '/')
                         + "/EntityRenderDistanceMixin.class"));
+                assertEquals("WalkTempoMixin", clientMixins.getAsJsonArray("client").get(1).getAsString());
+                assertNotNull(jar.getEntry(clientMixins.get("package").getAsString().replace('.', '/')
+                        + "/WalkTempoMixin.class"));
             }
             JsonObject mixins;
             try (var reader = new InputStreamReader(jar.getInputStream(jar.getEntry(config)), StandardCharsets.UTF_8)) {
@@ -83,7 +86,7 @@ class ScaffoldTest {
                         + adapter.getAsString() + ".class"), "Every declared adapter must ship");
             }
             assertFalse(mixins.has("plugin"), "Early spawn checks need no bytecode plugin");
-            assertEquals(3, mixins.getAsJsonArray("mixins").size(), "Spawn checks and baby-state adapter ship");
+            assertEquals(4, mixins.getAsJsonArray("mixins").size(), "Spawn, baby-state and turn-rate adapters ship");
             assertFalse(mod.getAsJsonObject("entrypoints").has("fabric-gametest"));
             assertFalse(jar.stream().anyMatch(entry -> entry.getName().contains("ScaffoldGameTests")),
                     "Development tests must not ship in the production JAR");

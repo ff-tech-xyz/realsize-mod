@@ -9,7 +9,7 @@ public final class DefaultScales {
     public static RealSizeConfig config() {
         // Retain the v1 table; bounds are applied by SizingPolicy, not baked into rules.
         // Registry membership and living-entity eligibility are checked in GameTests.
-        return new RealSizeConfig(2, 0.22, 0.22, 1.45, true, 1.49, true, Map.ofEntries(
+        return new RealSizeConfig(2, 0.22, 0.22, 1.45, true, 1.49, true, true, Map.ofEntries(
                 Map.entry("minecraft:spider", 0.26),
                 Map.entry("minecraft:cave_spider", 0.20),
                 Map.entry("minecraft:silverfish", 0.22),

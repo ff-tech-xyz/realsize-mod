@@ -216,7 +216,7 @@ public final class SpawnGameTests implements net.fabricmc.api.ModInitializer {
     }
 
     static void reload(GameTestHelper helper, Map<String, Double> scales) throws Exception {
-        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, scales);
+        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, true, scales);
         Files.writeString(FabricLoader.getInstance().getConfigDir().resolve("realsize.json"),
                 new GsonBuilder().setPrettyPrinting().create().toJson(config));
         executeReload(helper);

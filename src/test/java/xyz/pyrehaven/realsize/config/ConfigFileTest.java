@@ -29,6 +29,27 @@ class ConfigFileTest {
             """;
 
     @Test
+    void walkTempoOptionAcceptsExplicitBooleanWithoutRewritingV2() throws Exception {
+        Path file = directory.resolve("realsize.json");
+        var object = JsonParser.parseString(VALID).getAsJsonObject();
+        object.addProperty("clientWalkTempoFix", false);
+        byte[] original = object.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        Files.write(file, original);
+        assertFalse(ConfigFile.loadOrCreate(file, ignored -> {}).clientWalkTempoFix());
+        assertArrayEquals(original, Files.readAllBytes(file));
+        Files.writeString(file, VALID);
+        assertTrue(ConfigFile.loadOrCreate(file, ignored -> {}).clientWalkTempoFix());
+        assertEquals(VALID, Files.readString(file), "Old v2 files must not be rewritten to add the default");
+        for (String bad : new String[]{"null", "0", "\"false\"", "{}"}) {
+            String invalid = VALID.replace("\"entityScales\":", "\"clientWalkTempoFix\":" + bad + ",\"entityScales\":");
+            Files.writeString(file, invalid);
+            assertTrue(assertThrows(IOException.class,
+                    () -> ConfigFile.loadOrCreate(file, ignored -> {})).getMessage().contains("clientWalkTempoFix"));
+            assertEquals(invalid, Files.readString(file));
+        }
+    }
+
+    @Test
     void firstRunPreservesLegacySmallHostileSizes() throws Exception {
         var config = ConfigFile.loadOrCreate(directory.resolve("realsize.json"), ignored -> {});
         assertEquals(0.22, config.floor());
@@ -152,11 +173,11 @@ class ConfigFileTest {
     void snapshotDefensivelyCopiesCallerMap() {
         var entries = new java.util.HashMap<String, Double>();
         entries.put("minecraft:bee", 0.3);
-        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, entries);
+        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, true, entries);
         entries.clear();
         assertEquals(java.util.Map.of("minecraft:bee", 0.3), config.entityScales());
         assertThrows(IllegalArgumentException.class,
-                () -> new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true,
+                () -> new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, true,
                         java.util.Map.of("minecraft:bee", Double.NaN)));
     }
 

@@ -15,6 +15,11 @@ import java.io.UncheckedIOException;
 public final class RealSizeClient implements ClientModInitializer {
     private static final Logger LOGGER = LoggerFactory.getLogger("realsize/client");
     private static boolean renderDistanceFix;
+    private static boolean walkTempoFix;
+
+    public static boolean walkTempoFixEnabled() {
+        return walkTempoFix;
+    }
 
     public static boolean renderDistanceFixEnabled() {
         return renderDistanceFix;
@@ -24,6 +29,7 @@ public final class RealSizeClient implements ClientModInitializer {
         var config = ConfigFile.loadOrCreate(FabricLoader.getInstance().getConfigDir().resolve("realsize.json"),
                 LOGGER::warn);
         renderDistanceFix = config.clientRenderDistanceFix();
+        walkTempoFix = config.clientWalkTempoFix();
     }
 
     @Override
@@ -39,14 +45,16 @@ public final class RealSizeClient implements ClientModInitializer {
                             try {
                                 reloadOptions();
                                 command.getSource().sendFeedback(Component.literal(
-                                        "RealSize client distance correction: " + renderDistanceFix));
+                                        "RealSize client corrections: distance=" + renderDistanceFix
+                                                + ", walk tempo=" + walkTempoFix));
                                 return 1;
                             } catch (IOException exception) {
                                 command.getSource().sendError(Component.literal(
-                                        "RealSize client reload failed; previous option retained: " + exception.getMessage()));
+                                        "RealSize client reload failed; previous options retained: " + exception.getMessage()));
                                 return 0;
                             }
                         }))));
-        LOGGER.info("RealSize client initialized; local distance correction: {}", renderDistanceFix);
+        LOGGER.info("RealSize client initialized; local corrections: distance={}, walk tempo={}",
+                renderDistanceFix, walkTempoFix);
     }
 }

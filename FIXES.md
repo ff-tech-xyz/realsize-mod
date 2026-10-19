@@ -26,10 +26,10 @@ No source or version changes, release, production mutation or public page
 deployment are part of this documentation task.
 
 Status: v1 default parity and event-driven growth fixes are implemented and
-locally verified. The LAN preview has the verified JAR and regenerated defaults.
-The reported vanilla-client animation fault remains unreproduced; it is not
-claimed fixed. Independent review/hosted CI and player-driven acceptance of the
-corrected branch are not claimed.
+locally verified. The 2026-10-19 walk-tempo and turn-rate fixes are implemented
+and locally verified below. Vanilla clients retain vanilla walk rhythm; the
+animation correction requires the optional client installation. Visual tuning,
+independent review/hosted CI and player-driven acceptance are not claimed.
 Required player-driven gameplay is not accepted. Autonomous validation/review
 workers were stopped and their pending cards archived at his request; work now
 continues directly, most recently in thread `1561155192228155472`. README and ARCHITECTURE describe the final
@@ -58,6 +58,60 @@ and independently accepted, committed and pushed below. Wider final-validation
 gates remain open; the client result is not inferred from earlier spawn work.
 The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
+
+## 2026-10-19 — Small-mob walk rhythm and turning
+
+Implemented directly on `update/V.1.2.0` for Discord request
+`1561779074093944913`. The existing direct-takeover/no-new-workers restriction
+remains in force. Architecture groundwork preceded the new adapters. No
+independent review receipt, hosted CI, merge or release is claimed.
+
+- Inspected the actual pinned 26.3 sources: walk animation uses displacement
+  amplitude and an independent phase multiplier, with baby tempo already set to
+  3. Attribute `getScale()` excludes the age factor. The isolated client mixin
+  changes only the third update argument to `min(tempo / scale, 6)` for shrunk
+  mobs; players, neutral/enlarged mobs, amplitude and smoothing stay vanilla.
+- `clientWalkTempoFix` is local, defaults to true (including older v2 files),
+  reloads through the existing client command and retains both active flags on
+  invalid input. Existing v2 files are not rewritten. The explicit field is
+  strictly boolean; first-run and migrated configs serialize it. Server config
+  ownership and movement speed do not change.
+- The common mixin limits only server `MoveControl.tick` interpolation to 35
+  degrees for shrunk mobs. Specialized controllers bypassing this method are
+  not covered. There is no controller replacement, state map or sizing tick scan.
+  Both injection sites require exactly one match.
+- Behavioral red: the new transformed server test measured `-90` rather than
+  `-35` degrees at scale `0.26`. The packaged client test failed its inverse-scale
+  phase assertion before the client adapter. A config test rejected the new
+  explicit option before decoder support. Logs: `turn-red.log`, `walk-red.log`,
+  `config-red.log` under `runtime/realsize-mod/evidence/animation`.
+- `./gradlew clean build --console=plain`: **BUILD SUCCESSFUL**, parsed XML
+  **23 JUnit and 35 Minecraft cases, zero failures/errors/skips**. The first full
+  build passed all 35 Minecraft cases but failed the packaged-metadata test's
+  old one-client-mixin assertion; its declared-adapter inventory was updated,
+  then the clean build passed. No behavioral assertion was weakened.
+- Actual-JAR server GameTests also passed **35/35**, with JVM provenance from
+  `realsize-1.2.0.jar`. The deterministic navigation fixture runs real navigation,
+  MoveControl and travel on a cornered 13-node path: a scale `0.26` spider finishes
+  in **61 steering/travel iterations** without a stuck result or yaw step above
+  35 degrees. This is not interactive pathfinding/combat acceptance.
+- Packaged client tests under Xvfb passed both integrated and dedicated TCP
+  connections. At fixed displacement, the spider's phase is **11.384649** versus
+  vanilla **2.9600086**, with equal amplitude. Additional actual transformed
+  cases cover adult/baby, scales `0.1/0.26/0.5/1/1.45`, the cap, partial-tick
+  interpolation, independent toggles, player exclusion and invalid local reload.
+  Existing culling/frustum/tracking cases remain passing. Visual preference for
+  inverse scale versus gentler square-root tuning remains Elijah's playtest.
+- `python3 scripts/server-smoke.py`: **PASS**, packaged dedicated startup,
+  Done/save/exit 0 and no RealSize or Minecraft client class loads.
+- Artifact: `runtime/realsize-mod/build/libs/realsize-1.2.0.jar`, SHA-256
+  `6f7fc88fc4c0c0b256f2322673a817406cbc5e30b026184cf68e9e4665606902`.
+  Evidence: `full-build-final.log`, `packaged-tests.log`, `packaged-classes.log`,
+  `client-final.log`, `smoke-final.log` in the animation evidence directory.
+
+The older numerical v1/v2-equivalence probe below is historical evidence. This
+request explicitly adds scale-aware animation; vanilla-client leg rhythm remains
+an expected limitation, not a server-side animation fix.
 
 ## 2026-10-17 — Default parity and lifecycle regression fixes
 

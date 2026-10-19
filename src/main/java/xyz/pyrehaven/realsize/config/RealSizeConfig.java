@@ -10,6 +10,7 @@ public record RealSizeConfig(
         boolean proportionalStepHeight,
         double maxStepHeight,
         boolean clientRenderDistanceFix,
+        boolean clientWalkTempoFix,
         Map<String, Double> entityScales
 ) {
     public RealSizeConfig {

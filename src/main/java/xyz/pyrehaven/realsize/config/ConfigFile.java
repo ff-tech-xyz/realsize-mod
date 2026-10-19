@@ -30,7 +30,7 @@ import java.util.function.Function;
 public final class ConfigFile {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Set<String> V2_FIELDS = Set.of("configVersion", "floor", "hostileFloor", "cap",
-            "proportionalStepHeight", "maxStepHeight", "clientRenderDistanceFix", "entityScales");
+            "proportionalStepHeight", "maxStepHeight", "clientRenderDistanceFix", "clientWalkTempoFix", "entityScales");
     private static final Set<String> OBSOLETE_FIELDS = Set.of("trackingRangeThreshold", "minTrackingRangeChunks",
             "minTrackingDistanceBlocks", "stepHeightBoostThreshold", "stepHeightBoostAmount");
 
@@ -125,7 +125,7 @@ public final class ConfigFile {
         }
         double floor = number(object, "floor");
         return new RealSizeConfig(2, floor, floor, number(object, "cap"),
-                true, 1.49, true, scales(object));
+                true, 1.49, true, true, scales(object));
     }
 
     private static JsonObject parse(String text) throws IOException {
@@ -188,7 +188,8 @@ public final class ConfigFile {
         }
         return new RealSizeConfig(2, number(object, "floor"), number(object, "hostileFloor"),
                 number(object, "cap"), bool(object, "proportionalStepHeight"),
-                number(object, "maxStepHeight"), bool(object, "clientRenderDistanceFix"), scales(object));
+                number(object, "maxStepHeight"), bool(object, "clientRenderDistanceFix"),
+                !object.has("clientWalkTempoFix") || bool(object, "clientWalkTempoFix"), scales(object));
     }
 
     private static Map<String, Double> scales(JsonObject object) {

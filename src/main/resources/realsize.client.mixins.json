@@ -3,6 +3,6 @@
   "minVersion": "0.8",
   "package": "xyz.pyrehaven.realsize.client.mixin",
   "compatibilityLevel": "JAVA_25",
-  "client": ["EntityRenderDistanceMixin"],
+  "client": ["EntityRenderDistanceMixin", "WalkTempoMixin"],
   "injectors": {"defaultRequire": 1}
 }

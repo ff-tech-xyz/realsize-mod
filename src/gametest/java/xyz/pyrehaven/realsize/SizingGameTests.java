@@ -232,7 +232,7 @@ public final class SizingGameTests implements ModInitializer {
     }
 
     private static void writeReloadConfig(Map<String, Double> rules) throws IOException {
-        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, rules);
+        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, true, rules);
         Files.writeString(FabricLoader.getInstance().getConfigDir().resolve("realsize.json"),
                 new GsonBuilder().setPrettyPrinting().create().toJson(config) + "\n");
     }
@@ -374,7 +374,7 @@ public final class SizingGameTests implements ModInitializer {
         });
         // Only this development mod writes the disposable GameTest server fixture.
         var file = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
-        var fixture = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true,
+        var fixture = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, true,
                 Map.of("minecraft:bee", 0.25, "minecraft:chicken", 0.25,
                         "minecraft:zombie", 0.1, "minecraft:cow", 1.0,
                         "minecraft:piglin", 0.1, "minecraft:zoglin", 0.1));
@@ -501,7 +501,7 @@ public final class SizingGameTests implements ModInitializer {
         var foreign = modifier(FOREIGN_SCALE, 9.0);
         bee.getAttribute(Attributes.SCALE).addPermanentModifier(foreign);
         var diagnostics = new java.util.ArrayList<String>();
-        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, Map.of("minecraft:bee", 0.25));
+        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, true, Map.of("minecraft:bee", 0.25));
         var diagnosed = new EntitySizing(ResolvedSettings.resolve(config,
                 helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE), diagnostics::add), diagnostics::add);
         diagnosed.onLoad(bee);
@@ -616,7 +616,7 @@ public final class SizingGameTests implements ModInitializer {
         owner.reconcile(golem);
         helper.assertTrue(Math.abs(step.getValue() - 0.6 * 1.45f) < 0.00001,
                 "Foreign changes while own modifier exists must recompute baseline without feedback");
-        var disabled = new RealSizeConfig(2, 0.22, 0.6, 1.45, false, 1.49, true,
+        var disabled = new RealSizeConfig(2, 0.22, 0.6, 1.45, false, 1.49, true, true,
                 Map.of("minecraft:iron_golem", 1.45));
         new EntitySizing(ResolvedSettings.resolve(disabled,
                 helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE), message -> {}), message -> {})
@@ -654,7 +654,7 @@ public final class SizingGameTests implements ModInitializer {
                     double capped = collideWithBarrier(helper, mob, barrier, false);
                     helper.assertTrue(capped < 4.0 && mob.maxUpStep() < 1.5f,
                             "Default cap must block real barrier with foreign baseline below fence height");
-                    var nearFence = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, Math.nextDown(1.5), true, Map.of(id, scale));
+                    var nearFence = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, Math.nextDown(1.5), true, true, Map.of(id, scale));
                     new EntitySizing(ResolvedSettings.resolve(nearFence,
                             helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE), message -> {}), message -> {})
                             .reconcile(mob);
@@ -839,7 +839,7 @@ public final class SizingGameTests implements ModInitializer {
     }
 
     private static EntitySizing owner(GameTestHelper helper, Map<String, Double> rules) {
-        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, rules);
+        var config = new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, true, rules);
         return new EntitySizing(ResolvedSettings.resolve(config,
                 helper.getLevel().registryAccess().lookupOrThrow(Registries.ENTITY_TYPE), message -> {}),
                 message -> {});

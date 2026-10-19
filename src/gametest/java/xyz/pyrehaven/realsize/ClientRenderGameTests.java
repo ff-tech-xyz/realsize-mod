@@ -75,6 +75,7 @@ public final class ClientRenderGameTests implements FabricClientGameTest {
                 Entity.setViewScale(1.0);
                 verifyToggle(client, bee);
                 verifyDistanceCases(client);
+                verifyWalkTempo(client);
                 System.out.println("REALSIZE CLIENT PASS: " + mode + ", synced quarter-scale bee, local toggle, "
                         + "invalid reload, boundary/view scale, enlarged/baby/nonliving, frustum rejection");
             } finally {
@@ -150,6 +151,83 @@ public final class ClientRenderGameTests implements FabricClientGameTest {
         require(bee.shouldRender(bee.getX() + 30.0, bee.getY(), bee.getZ()), "Distance gate must allow bee");
         require(!client.getEntityRenderDispatcher().shouldRender(bee, hidden,
                 bee.getX() + 30.0, bee.getY(), bee.getZ(), 1.0F), "Distance correction must not bypass frustum rejection");
+    }
+
+    private static void verifyWalkTempo(Minecraft client) throws Exception {
+        var update = LivingEntity.class.getDeclaredMethod("updateWalkAnimation", float.class);
+        update.setAccessible(true);
+        var spider = EntityTypes.SPIDER.create(client.level, EntitySpawnReason.COMMAND);
+        spider.getAttribute(Attributes.SCALE).setBaseValue(0.26);
+        var vanilla = new net.minecraft.world.entity.WalkAnimationState();
+        for (int tick = 0; tick < 20; tick++) {
+            update.invoke(spider, 0.04f);
+            vanilla.update(0.16f, 0.4f, 1.0f);
+        }
+        require(Math.abs(spider.walkAnimation.position() - vanilla.position() / spider.getScale()) < 1e-5,
+                "Quarter-scale spider must advance walk rhythm by inverse attribute scale");
+        require(Math.abs(spider.walkAnimation.speed() - vanilla.speed()) < 1e-6,
+                "Walk rhythm must preserve vanilla swing amplitude and smoothing");
+        System.out.println("REALSIZE WALK TEMPO PASS: scale=" + spider.getScale()
+                + ", phase=" + spider.walkAnimation.position() + ", vanilla=" + vanilla.position());
+        var path = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
+        byte[] original = Files.readAllBytes(path);
+        var config = JsonParser.parseString(new String(original, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+        try {
+            for (boolean enabled : new boolean[]{false, true}) {
+                config.addProperty("clientWalkTempoFix", enabled);
+                config.addProperty("clientRenderDistanceFix", !enabled);
+                Files.writeString(path, config.toString());
+                require(ClientCommands.getActiveDispatcher().execute("realsize-client reload",
+                        (FabricClientCommandSource) client.player.connection.getSuggestionsProvider()) == 1,
+                        "Walk option must reload through the registered local command");
+                require(RealSizeClient.walkTempoFixEnabled() == enabled
+                        && RealSizeClient.renderDistanceFixEnabled() != enabled,
+                        "Client corrections must be independently configurable");
+                for (boolean baby : new boolean[]{false, true}) {
+                    for (float scale : new float[]{0.1f, 0.26f, 0.5f, 1.0f, 1.45f}) {
+                        var chicken = EntityTypes.CHICKEN.create(client.level, EntitySpawnReason.COMMAND);
+                        chicken.setBaby(baby);
+                        chicken.getAttribute(Attributes.SCALE).setBaseValue(scale);
+                        float tempo = baby ? 3 : 1;
+                        if (enabled && scale < 1) tempo = Math.min(tempo / scale, 6);
+                        assertWalkState(chicken, tempo, update);
+                    }
+                }
+                double base = client.player.getAttribute(Attributes.SCALE).getBaseValue();
+                try {
+                    client.player.getAttribute(Attributes.SCALE).setBaseValue(0.26);
+                    assertWalkState(client.player, 1, update);
+                } finally {
+                    client.player.getAttribute(Attributes.SCALE).setBaseValue(base);
+                }
+            }
+            config.addProperty("clientWalkTempoFix", "false");
+            Files.writeString(path, config.toString());
+            require(ClientCommands.getActiveDispatcher().execute("realsize-client reload",
+                    (FabricClientCommandSource) client.player.connection.getSuggestionsProvider()) == 0,
+                    "Non-boolean walk option must fail");
+            require(RealSizeClient.walkTempoFixEnabled() && !RealSizeClient.renderDistanceFixEnabled(),
+                    "Invalid local option must retain both previous options");
+        } finally {
+            Files.write(path, original);
+            RealSizeClient.reloadOptions();
+        }
+        System.out.println("REALSIZE WALK CASES PASS: independent toggles, baby/adult, cap, neutral/enlarged, player, invalid reload");
+    }
+
+    private static void assertWalkState(LivingEntity mob, float tempo, java.lang.reflect.Method update) throws Exception {
+        mob.walkAnimation.stop();
+        var expected = new net.minecraft.world.entity.WalkAnimationState();
+        for (float distance : new float[]{0.04f, 0.3f, 0.04f, 0.0f}) {
+            update.invoke(mob, distance);
+            expected.update(Math.min(distance * 4, 1), 0.4f, tempo);
+            require(Math.abs(mob.walkAnimation.speed() - expected.speed()) < 1e-6,
+                    "Animation amplitude/smoothing must remain vanilla");
+            for (float partial : new float[]{0, 0.5f, 1}) {
+                require(Math.abs(mob.walkAnimation.position(partial) - expected.position(partial)) < 1e-5,
+                        "Walk tempo/partial interpolation mismatch: scale=" + mob.getScale() + ", tempo=" + tempo);
+            }
+        }
     }
 
     private static void assertRange(Entity entity, double size) {

@@ -170,6 +170,6 @@ public final class ResolvedSettingsGameTests {
     }
 
     private static RealSizeConfig config(Map<String, Double> rules) {
-        return new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, rules);
+        return new RealSizeConfig(2, 0.22, 0.6, 1.45, true, 1.49, true, true, rules);
     }
 }
