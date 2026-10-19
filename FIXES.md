@@ -113,6 +113,15 @@ The older numerical v1/v2-equivalence probe below is historical evidence. This
 request explicitly adds scale-aware animation; vanilla-client leg rhythm remains
 an expected limitation, not a server-side animation fix.
 
+Preview closeout: `pyretest deploy` rebuilt successfully, passed all 35 Minecraft
+cases and restarted the existing `mod:realsize` Fabric program. Exact deployed
+JAR bytes/SHA-256 match the tested artifact above. Fresh startup loaded RealSize
+1.2.0 and reached `Done`; a TCP connection to `192.168.68.65:25565` succeeded.
+The existing default config was preserved (floors `0.22`, spider `0.26`); the
+absent new local option uses its tested true default. Implementation commit
+`fd0f55e8d2944dcd91b72de56074938c5ba7f063` was pushed and its exact remote SHA
+read back. The preview is left up for visual testing, not declared a release.
+
 ## 2026-10-17 — Default parity and lifecycle regression fixes
 
 - Restored every raw default rule to the v1 table (`b9baf45`): 50/50 entries
