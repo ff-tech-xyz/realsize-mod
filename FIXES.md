@@ -1,5 +1,21 @@
 # RealSize v2 fixes and acceptance
 
+## 2026-10-19 — Unlisted and modded mob configuration
+
+Clarified README and CONFIGURATION: generated defaults are selected size choices,
+not a complete 26.3 mob inventory or an allowlist. Administrators can add registered
+vanilla or modded entity IDs to the authoritative entityScales map. Added concrete
+vanilla and explicitly illustrative modded examples, reload instructions, absent-rule
+semantics, and the tag-selection exception with an exact neutral override. Existing
+legacy modifier cleanup remains documented; no blanket mod-compatibility claim.
+Source inspection confirms resolution uses the server registry, not DefaultScales
+as an allowlist. No runtime behavior or config schema changed.
+
+`./gradlew build --console=plain` passed, including a fresh Minecraft server run:
+all 35 required GameTests passed. JUnit was UP-TO-DATE, not a newly executed suite.
+This does not claim a live third-party mod integration test, independent review,
+release, or production change.
+
 ## 2026-10-19 — Production documentation preparation
 
 Rewrote README as the current-version player guide, with gameplay examples,

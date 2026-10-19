@@ -103,8 +103,16 @@ then run `/realsize reload` with operator permission level 2. For example,
 changing the bee rule from `0.25` to `0.4` makes loaded bees larger immediately;
 bees in unloaded chunks update when those chunks load.
 
-Use `1.0` to stop RealSize resizing a type. Invalid reloads keep the previous
-working settings and report the problem instead of partially applying edits.
+The defaults are not a complete mob list or a whitelist. Add entries under
+`entityScales` for other vanilla or modded mobs using their full IDs, such as
+`"minecraft:cow": 0.8` or `"modid:mob_name": 0.8` (replace the latter with a real
+installed mob's ID). **A mob with no matching entry or configured tag gets no
+RealSize sizing or step-height adjustment.** Deleted defaults are not restored.
+See [adding an unlisted mob](CONFIGURATION.md#add-a-mob-that-is-not-listed).
+
+Use `1.0` to stop RealSize resizing a type, including one selected by a tag.
+Invalid reloads keep the previous working settings and report the problem
+instead of partially applying edits.
 
 The [configuration guide](CONFIGURATION.md) covers every option, tags, default
 sizes, size limits and upgrading an existing configuration.

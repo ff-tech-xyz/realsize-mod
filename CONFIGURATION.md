@@ -30,6 +30,33 @@ To stop resizing a type, set an exact rule to `1.0`. Deleting its rule also
 works if no remaining tag rule selects that type. An empty `entityScales` map
 disables all configured sizing. Deleted default rules are not added back.
 
+## Add a mob that is not listed
+
+The generated list is a set of default size choices, **not every mob in Minecraft
+26.3 and not a whitelist**. You can add an entry for any registered mob, including
+mobs added by other mods, inside `entityScales`. Use its full entity-type ID:
+`minecraft:mob_name` for vanilla mobs or `modid:mob_name` for modded mobs.
+
+For example, add `"minecraft:cow": 0.8` alongside your existing rules to make cows
+smaller. A modded entry uses the same syntax, such as `"examplemod:forest_deer": 0.8`;
+that ID is an illustration, so replace it with the actual ID from the installed
+mod. Keep commas between entries, save the file, then run `/realsize reload`.
+You do not need to replace the whole map or change RealSize's source code.
+
+**If no exact entry or configured tag matches a mob, RealSize does not resize it
+or apply its proportional step-height adjustment.** Its normal size, including
+baby and variant differences and other mods' adjustments, remains untouched.
+Deleting a rule does not restore its default on the next load. If a tag still
+selects the mob, use an exact `1.0` entry to opt that mob out of the tag rule.
+Legacy RealSize saved modifiers are still cleaned on load as described in the
+[player guide](README.md#existing-worlds-and-removing-the-mod).
+
+The mob's mod must be installed on the server or single-player installation.
+An unknown ID produces a warning rather than applying to a different mob.
+Players and non-living entities are excluded; modded mob support still depends
+on the mob exposing the living attributes RealSize uses. It does not promise
+compatibility with custom sizing or spawning logic from every mod.
+
 ## Configuration file and options
 
 The file is authoritative. Defaults are written only when the file is missing;
