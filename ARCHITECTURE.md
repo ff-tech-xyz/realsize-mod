@@ -243,13 +243,21 @@ requirement to restore it.
 
 ## Client rendering
 
-Shrunk mobs use an optional client-local walk rhythm correction. The required
+Resized mobs use an optional client-local walk rhythm correction. The required
 `WalkTempoMixin` changes only the position-scale argument of the vanilla
-`LivingEntity.updateWalkAnimation(F)V` call to `WalkAnimationState.update(FFF)V`:
-`min(vanillaTempo / getScale(), 6)`, only for positive scales below one and
-only for mobs. Attribute scale excludes the age factor; vanilla's baby tempo
-is already in the argument and is not applied twice. Swing amplitude, smoothing,
-movement speed, players and neutral/enlarged entities stay vanilla.
+`updateWalkAnimation(F)V` call to `WalkAnimationState.update(FFF)V` in LivingEntity
+and the three 26.3 overrides in Camel, Frog and Creaking. One shared handler uses
+`min(vanillaTempo / getScale(), 6)` for positive mob attribute scales: smaller
+mobs cycle faster, larger mobs cycle slower and scale one retains vanilla tempo.
+It reads the effective synced scale, not configured defaults or a species table,
+so arbitrary config reloads and foreign scale modifiers use the same formula.
+Attribute scale excludes the age factor; vanilla's baby tempo is already in the
+argument and is not applied twice. Swing amplitude, per-species smoothing and
+walking suppression while sitting/dashing/jumping remain vanilla. Movement speed,
+players, attacks and separately controlled action animations are unchanged.
+Each target requires exactly one injection. Client tests cover actual golem
+render-state/model consumption after server config reloads, arbitrary scale
+samples and all three override-specific walking states.
 `clientWalkTempoFix` defaults to true, including when absent in older v2 files;
 an explicit value must be boolean. It shares the existing validated local reload
 without replacing the server snapshot. Invalid reloads retain both active options.
@@ -269,9 +277,9 @@ It preserves frustum/visibility checks and vanilla server tracking. It operates
 on the entity's actual scale, including when its client has no matching server
 configuration. The client's local toggle disables the correction cleanly.
 `RealSizeClient` reads the existing local config once during client startup;
-`/realsize-client reload` validates and replaces only its local rendering flag.
+`/realsize-client reload` validates and replaces only its local rendering options.
 It neither resolves entity rules nor changes the integrated/server sizing snapshot.
-Invalid local reloads retain the previous flag. The distance adapter adds an
+Invalid local reloads retain the previous options. The distance adapter adds an
 unscaled bounding-box threshold only for living entities whose actual SCALE is
 below one, preserving a successful vanilla result and the existing view scale.
 No rendering call reads the config file. Client GameTests exercise transformed
@@ -281,7 +289,7 @@ development-only and is never packaged in the production JAR.
 Supported acceptance modes are multiplayer with RealSize on server and client,
 and single-player with RealSize on the client and its integrated server. With
 RealSize only on a dedicated server, all server features remain available to
-vanilla clients; the client culling correction alone is absent. The integrated
+vanilla clients; the client culling and walk-tempo corrections are absent. The integrated
 server uses the same sizing lifecycle as a dedicated server, not a second path.
 
 Use MixinExtras `@ModifyReturnValue` if the verified 26.3 target supports it.

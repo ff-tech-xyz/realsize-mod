@@ -71,9 +71,11 @@ that does not run it.
 
 ## Optional client improvements
 
-With RealSize installed on your client, shrunk mobs also get a walking-animation
-rhythm correction. Their legs animate faster relative to the distance they move;
-their actual movement speed is unchanged. Set `clientWalkTempoFix` to `false`
+With RealSize installed on your client, resized mobs also get a walking-animation
+rhythm correction. Smaller mobs cycle their legs faster and larger mobs cycle
+them slower, calculated from their actual size rather than preset mob values.
+Changing a size rule also changes the rhythm; actual movement speed is unchanged.
+Set `clientWalkTempoFix` to `false`
 in your local config and run `/realsize-client reload` to disable this correction.
 Vanilla clients keep the vanilla walking animation.
 

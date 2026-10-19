@@ -75,6 +75,8 @@ public final class ClientRenderGameTests implements FabricClientGameTest {
                 Entity.setViewScale(1.0);
                 verifyToggle(client, bee);
                 verifyDistanceCases(client);
+                verifyGolemWalkTempo(client);
+                verifyOverrideWalkTempo(client, true);
                 verifyWalkTempo(client);
                 System.out.println("REALSIZE CLIENT PASS: " + mode + ", synced quarter-scale bee, local toggle, "
                         + "invalid reload, boundary/view scale, enlarged/baby/nonliving, frustum rejection");
@@ -84,6 +86,7 @@ public final class ClientRenderGameTests implements FabricClientGameTest {
         });
         server.runOnServer(instance -> require(((LivingEntity) instance.overworld().getEntity(id)).getScale() == 0.25F,
                 "Client local reload must not replace server sizing state"));
+        verifySyncedGolemReload(context, server);
         server.runCommand("tp @a 256 -60 0");
         context.waitFor(client -> client.player.getX() > 250 && client.level.getEntity(id) == null);
         server.runOnServer(instance -> require(instance.overworld().getEntity(id) != null,
@@ -153,6 +156,117 @@ public final class ClientRenderGameTests implements FabricClientGameTest {
                 bee.getX() + 30.0, bee.getY(), bee.getZ(), 1.0F), "Distance correction must not bypass frustum rejection");
     }
 
+    private static void verifyGolemWalkTempo(Minecraft client) throws Exception {
+        var update = LivingEntity.class.getDeclaredMethod("updateWalkAnimation", float.class);
+        update.setAccessible(true);
+        var golem = EntityTypes.IRON_GOLEM.create(client.level, EntitySpawnReason.COMMAND);
+        golem.getAttribute(Attributes.SCALE).setBaseValue(1.2);
+        assertWalkState(golem, 1.0f / golem.getScale(), update);
+        System.out.println("REALSIZE ENLARGED GOLEM PASS: scale=" + golem.getScale()
+                + ", tempo=" + 1.0f / golem.getScale());
+        var random = new java.util.Random(654123);
+        for (int sample = 0; sample < 32; sample++) {
+            golem.getAttribute(Attributes.SCALE).setBaseValue(0.0625f + random.nextFloat() * (16 - 0.0625f));
+            assertWalkState(golem, Math.min(1 / golem.getScale(), 6), update);
+        }
+        System.out.println("REALSIZE GOLEM SCALE SWEEP PASS: 32 deterministic arbitrary attribute scales");
+    }
+
+    private static void verifySyncedGolemReload(ClientGameTestContext context, TestServerContext server) throws Exception {
+        var path = FabricLoader.getInstance().getConfigDir().resolve("realsize.json");
+        byte[] original = Files.readAllBytes(path);
+        var config = JsonParser.parseString(new String(original, java.nio.charset.StandardCharsets.UTF_8)).getAsJsonObject();
+        int id = server.computeOnServer(instance -> {
+            var player = instance.getPlayerList().getPlayers().getFirst();
+            var golem = EntityTypes.IRON_GOLEM.create(player.level(), EntitySpawnReason.COMMAND);
+            golem.setNoAi(true);
+            golem.setNoGravity(true);
+            golem.setPos(player.position().add(2, 1, 4));
+            player.level().addFreshEntity(golem);
+            return golem.getId();
+        });
+        try {
+            for (double scale : new double[]{0.73, 1, 1.2, 1.37, 2.75}) {
+                config.addProperty("cap", 4);
+                config.getAsJsonObject("entityScales").addProperty("minecraft:iron_golem", scale);
+                server.runOnServer(instance -> {
+                    Files.writeString(path, config.toString());
+                    require(instance.getCommands().getDispatcher().execute("realsize reload",
+                            instance.createCommandSourceStack()) == 1, "Server config reload must succeed");
+                    require(((LivingEntity) instance.overworld().getEntity(id)).getScale() == (float) scale,
+                            "Config reload must resize the existing golem");
+                });
+                context.waitFor(client -> client.level.getEntity(id) instanceof LivingEntity golem
+                        && golem.getScale() == (float) scale);
+                context.runOnClient(client -> {
+                    var golem = (net.minecraft.world.entity.animal.golem.IronGolem) client.level.getEntity(id);
+                    var update = LivingEntity.class.getDeclaredMethod("updateWalkAnimation", float.class);
+                    update.setAccessible(true);
+                    assertWalkState(golem, 1 / golem.getScale(), update);
+                    var renderer = (net.minecraft.client.renderer.entity.IronGolemRenderer)
+                            client.getEntityRenderDispatcher().getRenderer(golem);
+                    var state = renderer.createRenderState();
+                    renderer.extractRenderState(golem, state, 0.5f);
+                    var expected = new net.minecraft.world.entity.WalkAnimationState();
+                    for (float distance : new float[]{0.04f, 0.3f, 0.04f, 0}) {
+                        expected.update(Math.min(distance * 4, 1), 0.4f, 1 / golem.getScale());
+                    }
+                    require(Math.abs(state.walkAnimationPos - expected.position(0.5f)) < 1e-5,
+                            "Golem renderer must consume the scale-corrected phase after config reload");
+                    var root = net.minecraft.client.model.animal.golem.IronGolemModel.createBodyLayer().bakeRoot();
+                    var model = new net.minecraft.client.model.animal.golem.IronGolemModel(root);
+                    model.setupAnim(state);
+                    float swing = 1.5f * net.minecraft.util.Mth.triangleWave(expected.position(0.5f), 13)
+                            * expected.speed(0.5f);
+                    require(Math.abs(root.getChild("right_leg").xRot + swing) < 1e-5
+                            && Math.abs(root.getChild("left_leg").xRot - swing) < 1e-5,
+                            "Actual golem model legs must use corrected phase without changing swing amplitude");
+                    System.out.println("REALSIZE SYNCED GOLEM MODEL PASS: config scale=" + scale
+                            + ", synced=" + golem.getScale() + ", phase=" + state.walkAnimationPos);
+                });
+            }
+        } finally {
+            server.runOnServer(instance -> {
+                Files.write(path, original);
+                require(instance.getCommands().getDispatcher().execute("realsize reload",
+                        instance.createCommandSourceStack()) == 1, "Restore original server fixture config");
+                var golem = instance.overworld().getEntity(id);
+                if (golem != null) golem.discard();
+            });
+        }
+    }
+
+    private static void verifyOverrideWalkTempo(Minecraft client, boolean enabled) throws Exception {
+        var update = LivingEntity.class.getDeclaredMethod("updateWalkAnimation", float.class);
+        update.setAccessible(true);
+        for (float scale : new float[]{0.26f, 1, 1.37f, 2.5f}) {
+            var camel = EntityTypes.CAMEL.create(client.level, EntitySpawnReason.COMMAND);
+            camel.getAttribute(Attributes.SCALE).setBaseValue(scale);
+            float tempo = enabled ? Math.min(1 / scale, 6) : 1;
+            assertWalkState(camel, tempo, update, 6, 1, 0.2f);
+            camel.setPose(net.minecraft.world.entity.Pose.SITTING);
+            assertWalkState(camel, tempo, update, 0, 1, 0.2f);
+            camel.setPose(net.minecraft.world.entity.Pose.STANDING);
+            camel.dashAnimationState.start(0);
+            assertWalkState(camel, tempo, update, 0, 1, 0.2f);
+            camel.dashAnimationState.stop();
+            camel.setBaby(true);
+            assertWalkState(camel, enabled ? Math.min(3 / scale, 6) : 3, update, 6, 1, 0.2f);
+
+            var frog = EntityTypes.FROG.create(client.level, EntitySpawnReason.COMMAND);
+            frog.getAttribute(Attributes.SCALE).setBaseValue(scale);
+            assertWalkState(frog, tempo, update, 25, 1, 0.4f);
+            frog.jumpAnimationState.start(0);
+            assertWalkState(frog, tempo, update, 0, 1, 0.4f);
+
+            var creaking = EntityTypes.CREAKING.create(client.level, EntitySpawnReason.COMMAND);
+            creaking.getAttribute(Attributes.SCALE).setBaseValue(scale);
+            assertWalkState(creaking, tempo, update, 25, 3, 0.4f);
+        }
+        System.out.println("REALSIZE OVERRIDE WALK PASS: enabled=" + enabled
+                + ", camel/frog/creaking, small/neutral/large, sitting/dashing/jumping, baby camel");
+    }
+
     private static void verifyWalkTempo(Minecraft client) throws Exception {
         var update = LivingEntity.class.getDeclaredMethod("updateWalkAnimation", float.class);
         update.setAccessible(true);
@@ -183,13 +297,14 @@ public final class ClientRenderGameTests implements FabricClientGameTest {
                 require(RealSizeClient.walkTempoFixEnabled() == enabled
                         && RealSizeClient.renderDistanceFixEnabled() != enabled,
                         "Client corrections must be independently configurable");
+                verifyOverrideWalkTempo(client, enabled);
                 for (boolean baby : new boolean[]{false, true}) {
                     for (float scale : new float[]{0.1f, 0.26f, 0.5f, 1.0f, 1.45f}) {
                         var chicken = EntityTypes.CHICKEN.create(client.level, EntitySpawnReason.COMMAND);
                         chicken.setBaby(baby);
                         chicken.getAttribute(Attributes.SCALE).setBaseValue(scale);
                         float tempo = baby ? 3 : 1;
-                        if (enabled && scale < 1) tempo = Math.min(tempo / scale, 6);
+                        if (enabled) tempo = Math.min(tempo / scale, 6);
                         assertWalkState(chicken, tempo, update);
                     }
                 }
@@ -216,11 +331,16 @@ public final class ClientRenderGameTests implements FabricClientGameTest {
     }
 
     private static void assertWalkState(LivingEntity mob, float tempo, java.lang.reflect.Method update) throws Exception {
+        assertWalkState(mob, tempo, update, 4, 1, 0.4f);
+    }
+
+    private static void assertWalkState(LivingEntity mob, float tempo, java.lang.reflect.Method update,
+            float distanceGain, float targetCap, float smoothing) throws Exception {
         mob.walkAnimation.stop();
         var expected = new net.minecraft.world.entity.WalkAnimationState();
         for (float distance : new float[]{0.04f, 0.3f, 0.04f, 0.0f}) {
             update.invoke(mob, distance);
-            expected.update(Math.min(distance * 4, 1), 0.4f, tempo);
+            expected.update(Math.min(distance * distanceGain, targetCap), smoothing, tempo);
             require(Math.abs(mob.walkAnimation.speed() - expected.speed()) < 1e-6,
                     "Animation amplitude/smoothing must remain vanilla");
             for (float partial : new float[]{0, 0.5f, 1}) {

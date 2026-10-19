@@ -59,6 +59,52 @@ gates remain open; the client result is not inferred from earlier spawn work.
 The former FEATURES.md mentioned
 in the audit is not present in this checkout; ARCHITECTURE is the active contract.
 
+## 2026-10-19 — All-scale walk rhythm and vanilla overrides
+
+Supersedes the small-only animation contract below. Elijah requested enlarged
+mob correction and formula-driven behavior for arbitrary configuration changes
+in `1561784727260758149`, then explicitly approved coverage of the three vanilla
+overrides in `1561785573923098780`. Work continues directly under the existing
+no-replacement-workers restriction; independent review and hosted CI are not
+claimed. Server movement/turning and configuration schema are unchanged.
+
+- Root cause: the original client handler explicitly skipped `scale >= 1`.
+  An actual packaged-client golem test at scale `1.2` failed at expected tempo
+  `0.8333333` before removal of that restriction (`golem-red.log`).
+- One shared handler now applies `min(vanillaTempo / actualAttributeScale, 6)`
+  at all positive mob scales. Neutral scale preserves vanilla; enlargement slows
+  the rhythm and shrinking speeds it up. It reads current synced attributes,
+  not defaults, identifiers or a per-species size table. Baby tempo remains the
+  vanilla argument and is not multiplied by age twice. The tiny-mob cap remains.
+- Source inspection of the pinned common sources found exactly three overrides
+  of `updateWalkAnimation`: Camel, Frog and Creaking. Their new transformed test
+  failed on the uncorrected camel before adding those targets (`overrides-red.log`).
+  The existing mixin now targets all four implementations, requiring one match
+  per target. It changes only the phase multiplier, retaining each original
+  amplitude/smoothing and camel sitting/dashing or frog jumping suppression.
+  Player animation and separately controlled action animations are untouched.
+- `./gradlew clean build --console=plain`: **BUILD SUCCESSFUL**. Parsed reports:
+  **23 JUnit + 35 Minecraft cases, zero failures/errors/skips**. The existing
+  tiny-spider navigation and server turn-limit cases remain passing.
+- `xvfb-run -a ./gradlew runClientGameTest --console=plain`: **BUILD SUCCESSFUL**,
+  using the actual packaged JAR in both integrated and dedicated TCP modes.
+  Tests cover the 1.2 golem, 32 deterministic arbitrary golem attribute scales,
+  all three overrides at small/neutral/enlarged sizes, baby camel and walking
+  suppression, plus option-off vanilla behavior and the previous client checks.
+- A tracked golem is resized through the registered server reload command at
+  config values `0.73`, `1`, `1.2`, `1.37`, `2.75`. The test waits for each synced
+  attribute, invokes the transformed animation, extracts its real renderer state
+  and exercises the actual vanilla golem model. Both leg angles match the inverse-
+  scale phase with unchanged swing amplitude. This proves config-to-model
+  behavior, not subjective visual acceptance or phase continuity on hot reload.
+- `python3 scripts/server-smoke.py`: **PASS**, packaged dedicated startup,
+  Done/save/exit 0 and no RealSize/Minecraft client classes loaded.
+- Evidence directory: `runtime/realsize-mod/evidence/all-scale-animation/`;
+  final logs `full-build.log`, `client-final.log`, `smoke-final.log`.
+  JAR SHA-256: `61fda8b33c47d3836ad6c1bf5763b1012e0ecfb0b282e6b88a8312048eae482f`.
+  README, configuration reference and architecture now describe both directions
+  of scale correction; no external page or release was published.
+
 ## 2026-10-19 — Small-mob walk rhythm and turning
 
 Implemented directly on `update/V.1.2.0` for Discord request

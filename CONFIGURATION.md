@@ -78,7 +78,11 @@ RealSize settings, not just one rule.
   does not apply server sizing rules; integrated-server sizing still uses
   `/realsize reload` separately.
 - `clientWalkTempoFix` controls the optional client correction for the walking
-  animation rhythm of shrunk mobs. It defaults to `true`, including when omitted
+  animation rhythm of resized mobs. Tempo is `min(vanilla tempo / actual attribute
+  scale, 6)`: smaller mobs cycle faster and larger mobs slower. The attribute
+  scale already reflects the server's current rule and other scale modifiers;
+  vanilla baby tempo is preserved without applying age twice. It defaults to
+  `true`, including when omitted
   from older v2 files. Edit the local file and run `/realsize-client reload` to
   apply it. It does not change movement speed or the server sizing rules.
 - `entityScales` accepts exact entity IDs and `#tag` selectors. Exact IDs win;
