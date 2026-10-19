@@ -1,5 +1,30 @@
 # RealSize v2 fixes and acceptance
 
+## 2026-10-19 — Production documentation preparation
+
+Rewrote README as the current-version player guide, with gameplay examples,
+installation by play mode, optional client improvements, size changes and world
+upgrade/removal precautions. Configuration, the full default table and migration
+reference live in CONFIGURATION.md; builds and verification scope live in
+DEVELOPMENT.md. ARCHITECTURE links to the new reference and the v1 README is
+explicitly archival. This does not mark the gameplay/release gates below complete.
+
+Editorial comparison used the upstream Lithium and Sodium READMEs: explain the
+mod first, make installation/client requirements obvious, and separate detailed
+configuration and contributor information from the player entry point. Sources:
+`https://github.com/CaffeineMC/lithium-fabric/blob/develop/README.md` and
+`https://github.com/CaffeineMC/sodium/blob/dev/README.md`.
+
+Executable documentation checks passed: relative links and anchors resolve,
+fences balance, the JSON example covers the current schema, and every documented
+default matches DefaultScales. Concurrent gameplay work added clientWalkTempoFix
+during this edit; the docs include that option and do not claim its gameplay
+acceptance. Independent documentation review found no concrete errors in the
+player/configuration/development guides; source inspection and executable checks
+also cover the concurrently added client option. `git diff --check` passed.
+No source or version changes, release, production mutation or public page
+deployment are part of this documentation task.
+
 Status: v1 default parity and event-driven growth fixes are implemented and
 locally verified. The LAN preview has the verified JAR and regenerated defaults.
 The reported vanilla-client animation fault remains unreproduced; it is not

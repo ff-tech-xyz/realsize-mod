@@ -1,4 +1,8 @@
-# RealSize
+# RealSize v1 — archived documentation
+
+> Historical reference only. The tracking, compatibility and restart instructions
+> below describe the old mod, not RealSize v2. Use the [current player guide](README.md)
+> and [configuration guide](CONFIGURATION.md) for installation and settings.
 
 RealSize makes Minecraft mobs feel closer to real-world sizes. Bees can be tiny, horses can feel properly large, and server owners decide how far to push the effect.
 

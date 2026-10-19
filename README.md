@@ -1,193 +1,146 @@
-# RealSize v2
+# RealSize
 
-RealSize resizes Minecraft mobs without baking those changes into the world save.
-Bees are small, large mobs move proportionally, and server owners control the
-sizes through `config/realsize.json`.
+RealSize changes the size of Minecraft mobs to give familiar creatures more
+believable proportions. Bees are tiny, spiders are smaller, and iron golems
+are larger. These are actual size changes, including hitboxes, not just smaller
+or larger models.
 
-> This README describes the completed v2 target in present tense. It is the
-> rebuild's product contract, not evidence that this checkout implements it.
-> [FIXES.md](FIXES.md) records the remaining work and verification gates.
-> “v2” names the rebuild; the current artifact version remains `1.2.0` until a
-> separate versioning decision changes it.
+The defaults work without editing a file. Server owners and single-player
+players can also choose their own sizes, from subtle adjustments to a different
+balance for their world. RealSize changes existing mobs as well as newly
+spawned ones; you do not need a new world.
 
-## What it does
+## Playing with RealSize
 
-- Applies configurable, temporary scale modifiers to mobs. Reloading the config
-  updates loaded mobs; chunk loads apply the current settings to other mobs.
-- Removes RealSize's old saved modifiers when those mobs load. Removing a rule
-  or setting it to `1.0` restores neutral RealSize scaling.
-- Gives actively resized hostiles a higher minimum size and keeps actively
-  resized babies from compounding below their category's floor. Neutral `1.0`
-  and deleted rules preserve vanilla baby size without RealSize modifiers.
-  Smaller hitboxes still change combat and movement;
-  the hostile floor limits the effect, not guarantees vanilla mob-proofing.
-- Scales land-mob step height proportionally without granting a new ability to
-  cross 1.5-block fences or walls. Aquatic mobs get no RealSize step boost.
-- Keeps tiny mobs from being culled prematurely when the optional client
-  component is installed. It does not extend server tracking distance.
+There are no new items to craft or controls to learn. Play normally and the
+configured sizes apply automatically. Each mob type has a fixed size rule;
+RealSize does not randomly assign a different size to every individual.
 
-For example, changing the bee rule from `0.25` to `0.4` and running
-`/realsize reload` changes existing loaded bees as well as future bees.
+With the default settings:
 
-## Installation and compatibility
+- Bees have a quarter of their normal width and height.
+- Spiders use `0.26` of their normal size. Smaller hitboxes can fit through
+  spaces that stopped their vanilla counterparts.
+- Horses are slightly larger at `1.05`, and iron golems are larger at `1.2`.
+- Types without a rule keep their normal size.
 
-RealSize targets Minecraft **26.3**, Fabric, and Java **25** in one JAR. This
-rebuild does not claim support for 1.21.x or older 26.x releases.
+Baby mobs still grow up. For types with active resizing, a minimum size keeps
+baby scaling from making them too small. Mob variants keep their own size
+differences; a scale rule is not an exact height in blocks for every variant.
 
-Install the JAR and its declared Fabric dependencies on the server. Vanilla
-clients can join: scaling and movement do not require a client installation.
-Players can optionally install the same JAR on a Fabric client for the tiny-mob
-render-distance correction. No client classes load on a dedicated server.
+Larger land mobs get a proportional step-height adjustment to help them cross
+small terrain changes. RealSize does not lower a small mob's normal step height
+or give aquatic mobs this boost. Its added step height stays below the height
+of a 1.5-block fence or wall; mobs that already have a higher step height retain
+it. Size changes can still affect pens, farms and combat, so check builds that
+depend on vanilla hitboxes rather than assuming they remain mob-proof.
 
-The culling correction works when both the multiplayer server and the client
-have RealSize, and in single-player with RealSize installed. A server-only
-installation still provides sizing, movement, configuration reload, and spawn
-clearance to vanilla clients; only the optional rendering correction is absent.
-In single-player, the integrated server owns sizing and the client owns culling.
+Natural spawning uses the configured adult size in Minecraft's existing early
+space checks. It is not a guarantee that every baby, variant or rider fits after
+Minecraft finishes spawning it. Existing mobs are not moved or deleted when
+their size changes. Leave enough room before enlarging mobs in confined areas.
 
-Without the client component, vanilla hitbox-based rendering limits still apply.
-With it, shrinking entities use unscaled dimensions for distance decisions,
-without shortening vanilla render distance for enlarged entities; normal
-frustum culling and the server's vanilla tracking limits remain in force. A
-client-only install does not resize mobs on a server without RealSize.
+## Installation
 
-## Configuration
+RealSize v2 is for **Minecraft 26.3**, using **Fabric** and **Java 25**.
+It requires **Fabric Loader 0.19.5 or later** and **Fabric API 0.162.0+26.3 or
+later compatible with Minecraft 26.3**. This build does not support Forge,
+NeoForge, Minecraft 1.21.x, or earlier 26.x releases.
 
-The file is authoritative. Defaults are written only when the file is missing;
-entries deleted from an existing `entityScales` map are not silently restored.
-A versioned migration writes an updated schema only after successful validation,
-preserving a backup of the original. Unknown IDs/tags produce named warnings,
-and malformed values fail with the field and file path rather than silently
-substituting a value.
+### Single-player
 
-```json
-{
-  "configVersion": 2,
-  "floor": 0.22,
-  "hostileFloor": 0.22,
-  "cap": 1.45,
-  "proportionalStepHeight": true,
-  "maxStepHeight": 1.49,
-  "clientRenderDistanceFix": true,
-  "entityScales": {
-    "minecraft:bee": 0.25,
-    "minecraft:horse": 1.05,
-    "#minecraft:skeletons": 0.8
-  }
-}
-```
+1. Set up a Fabric installation for Minecraft 26.3 with Java 25.
+2. Put the RealSize JAR and the matching Fabric API JAR in its `mods` folder.
+3. Launch that installation and open your world. RealSize creates
+   `config/realsize.json` automatically.
 
-This is a short custom configuration, not the complete generated default table.
-The generated table retains v1's sizes and is reviewed against the 26.3 registry.
-Both floors default to `0.22`; a higher `hostileFloor` is opt-in. Hostile entries
-cannot bypass that configured bound. Existing v2 files are not rewritten; remove
-the file if you deliberately want newly generated defaults instead of your map.
+The same installation handles both mob sizing and the optional visibility
+correction described below.
 
-- `floor` and `hostileFloor` set minimum final size relative to the entity type's
-  unscaled adult size, including baby scaling, for active non-neutral rules.
-  Neutral `1.0` and absent rules bypass these limits and remove owned modifiers.
-  The hostile minimum is at least `floor`. `cap` sets the maximum.
-- `proportionalStepHeight` enables land-mob proportional movement.
-  `maxStepHeight` is below `1.5`; existing vanilla or foreign-mod step height is
-  never lowered to satisfy this cap.
-- `clientRenderDistanceFix` controls the optional client component in that
-  client's local configuration. Server configuration does not toggle clients.
-  Edit the local file and run `/realsize-client reload` to apply that option
-  without restarting. Invalid reloads retain the previous option. This command
-  does not apply server sizing rules; integrated-server sizing still uses
-  `/realsize reload` separately.
-- `entityScales` accepts exact entity IDs and `#tag` selectors. Exact IDs win;
-  conflicting tags are rejected rather than relying on map iteration order.
-  Players and non-living entities are excluded.
+### Multiplayer
 
-Scales are positive and finite. Floors cannot exceed the cap. Missing required
-v2 fields are validation errors; legacy files go through the explicit migration
-instead of an implicit default merge.
+The server owner installs RealSize and Fabric API in the Fabric server's `mods`
+folder, then starts the server with Java 25. The server controls the sizes for
+everyone. **Players do not need RealSize or Fabric to join a RealSize server.**
+Other mods on that server may have their own requirements.
 
-The supported legacy input is the old unversioned JSON object. It must contain
-`floor`, `cap`, and `entityScales`; the old tracking and flat-step fields are
-optional, validated if present, and removed with a named migration diagnostic.
-Migration retains the explicit map, sets `hostileFloor` to the legacy `floor`,
-enables proportional movement and the local rendering option, and uses `1.49`
-for `maxStepHeight`. Incompatible bounds fail rather than silently changing
-`cap`. A v2-shaped file missing `configVersion` is an error, not legacy input.
-Other version numbers are unsupported.
+Players who want the optional tiny-mob visibility correction can install the
+same RealSize JAR and Fabric API on their own matching Fabric client. Installing
+RealSize only on a multiplayer client does not enable mob resizing on a server
+that does not run it.
 
-The exact original bytes are saved as `realsize.json.legacy.bak` before atomic
-replacement. An existing backup blocks migration rather than being overwritten;
-inspect and move it before retrying. If atomic replacement is unsupported, the
-operation fails without a non-atomic fallback. Valid v2 files are read without
-rewriting. Duplicate keys, unknown top-level fields, string-coerced numbers or
-booleans, and symbolic-link config paths are rejected with named diagnostics.
+## Optional client improvements
 
-`/realsize reload` requires permission level 2. A successful reload replaces
-one validated settings snapshot and reconciles loaded mobs on the server thread.
-A failed reload leaves the previous snapshot and mobs unchanged and reports
-what to fix. The startup equivalent fails rather than running silently on a
-bad file. Neither path rewrites an invalid file.
+With RealSize installed on your client, shrunk mobs also get a walking-animation
+rhythm correction. Their legs animate faster relative to the distance they move;
+their actual movement speed is unchanged. Set `clientWalkTempoFix` to `false`
+in your local config and run `/realsize-client reload` to disable this correction.
+Vanilla clients keep the vanilla walking animation.
 
-## Existing worlds
+### Seeing tiny mobs at a distance
 
-On entity load, RealSize strips legacy persistent modifiers in its own
-`realsize` namespace and applies current transient modifiers. It leaves other
-mods' attributes alone. Repeated loads and reloads never stack changes.
+Minecraft can stop drawing a tiny mob sooner than a normal-sized one. The
+optional client component uses the mob's unscaled dimensions for this distance
+check, so shrinking a bee does not also shrink that rendering distance.
+It is enabled by default when RealSize is installed on the client.
 
-Uninstalling after migration does not leave new RealSize scale data in saves.
-**Old, unloaded mobs are not magically repaired by uninstalling.** Keep RealSize
-installed until affected chunks have loaded and been saved, or use a separately
-verified offline migration before removal. There is no claim of a whole-world
-cleanup command in v2.
+This does not extend the server's tracking distance or reveal mobs the server
+has stopped sending to you. Normal visibility checks still apply. With a
+server-only installation, mob sizing works, but players keep vanilla's rendering
+behavior.
 
-Vanilla's existing early spawn-space check uses the configured adult size.
-The rest of spawning stays vanilla: baby, variant and rider choices are not
-followed by an extra fit check. SpawnUtil's collision-check toggle is preserved;
-RealSize does not add a collision check where its caller disabled one.
-Existing mobs, explicit summons and config changes are not teleported or deleted
-to solve collisions; administrators must leave enough space for configured sizes.
+To disable the correction, set `clientRenderDistanceFix` to `false` in your
+client's `config/realsize.json` and run `/realsize-client reload`. Set it back to
+`true` and reload to enable it again. The command reloads both local client
+options, not the server's sizes.
 
-Two bounded server adapters change the bounds supplied to existing vanilla
-checks and use the same sizing owner as load and reload. They preserve vanilla
-finalization and retries without deferred effects, candidate state or bytecode
-rewriting. There are no server tracking mixins, custom networking, or
-client-required registries. Implementation and verification status remain in
-FIXES.md.
+## Changing sizes
 
-## Building and testing
+Edit `config/realsize.json` on the server, or in your single-player installation,
+then run `/realsize reload` with operator permission level 2. For example,
+changing the bee rule from `0.25` to `0.4` makes loaded bees larger immediately;
+bees in unloaded chunks update when those chunks load.
 
-One root Gradle project uses Mojang names, the non-remapping
-`net.fabricmc.fabric-loom` plugin, and Java 25. Build pins live in
-`gradle.properties`; there are no mapping JARs or legacy platform modules.
+Use `1.0` to stop RealSize resizing a type. Invalid reloads keep the previous
+working settings and report the problem instead of partially applying edits.
 
-```bash
-./gradlew clean build --console=plain
-python3 scripts/server-smoke.py
-./gradlew runClientGameTest --console=plain
-```
+The [configuration guide](CONFIGURATION.md) covers every option, tags, default
+sizes, size limits and upgrading an existing configuration.
 
-In the PyreHaven checkout layout, the completed JAR is
-`../../runtime/realsize-mod/build/libs/realsize-<version>.jar`.
-The first command compiles and packages the JAR and runs nonempty JUnit and
-Minecraft server suites. The smoke command boots that packaged JAR with Loom's
-pinned game/dependency classpath, verifies dedicated-server client isolation,
-then saves and stops. It accepts the development EULA only in its disposable
-loopback runtime. `./gradlew runServer --console=plain` remains available for
-an ordinary interactive development server.
+## Existing worlds and removing the mod
 
-The separate client command loads the same packaged JAR, not the production
-source-output directories. It starts a real graphical client and exercises
-single-player and a loopback dedicated connection, local option reload and
-vanilla tracking limits. Linux without a display uses
-`xvfb-run -a ./gradlew runClientGameTest --console=plain`; Xvfb and the game's
-OpenGL/audio libraries must be available. These are automated gameplay checks,
-not an unrestricted mod-compatibility or manual-play certification.
+You can use RealSize in an existing world. Its current size and step-height
+adjustments are temporary: they are reapplied from the config when mobs load,
+not permanently written into those mobs. Removing a rule or uninstalling the
+mod removes those current adjustments without a whole-world cleanup pass.
 
-CI runs those commands with SHA-pinned actions, Java 25, and the checksum-pinned
-Gradle wrapper. It requires nonempty reports and packaged-class provenance,
-checks that client/server probes didn't change the JAR, and retains that JAR
-with its hash and test logs. It does not publish a release. Exact acceptance
-gates, measurements, and actual completion status live in [FIXES.md](FIXES.md),
-not inferred from an empty build or a workflow file's existence.
+**Upgrading from an older RealSize installation needs extra care.** Older
+versions saved permanent attribute changes. RealSize removes its old saved
+modifiers as affected mobs load, leaving other mods' modifiers alone. Back up
+your world and configuration before upgrading.
 
-[ARCHITECTURE.md](ARCHITECTURE.md) defines ownership and implementation phases.
-[LEGACY_README.md](LEGACY_README.md) is an archived description of the old mod;
-its visibility, compatibility, and persistence claims are not v2 guarantees.
+Unloaded legacy mobs are not cleaned just because the mod is installed or later
+removed. Keep RealSize installed until affected chunks have loaded and been
+saved before uninstalling, or arrange a separately verified offline migration.
+There is no whole-world cleanup command. See the [migration reference](CONFIGURATION.md#upgrading-an-older-configuration)
+for config backups and upgrade behavior.
+
+## Help and further reading
+
+- **A size edit did nothing:** check that you edited the server's file, then run
+  `/realsize reload`. A client-local file cannot override multiplayer sizes.
+- **A mob is not as small as requested:** check `floor` and `hostileFloor`.
+  Both default to `0.22`; `cap` defaults to `1.45`. These bounds apply to active
+  non-neutral rules, including baby scaling. Other mods can also affect size.
+- **A tiny mob disappears at a distance:** install RealSize on your client for
+  the optional correction. Server tracking still limits how far away it exists
+  on your client.
+- **Reload reports an error:** fix the named field in the file. Do not delete
+  your configuration just to hide an error; the previous active settings remain
+  in use after a failed reload.
+
+For bug reports, include Minecraft, Fabric Loader, Fabric API and RealSize
+versions, the relevant config, logs, and steps to reproduce the problem.
+
+Server owners: [Configuration and default sizes](CONFIGURATION.md).
+Contributors: [Building and testing](DEVELOPMENT.md).

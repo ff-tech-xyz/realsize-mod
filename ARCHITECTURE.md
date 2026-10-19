@@ -33,6 +33,8 @@ exist. Each file is created only in its approved implementation phase.
 ```text
 realsize-mod/
 ├── README.md
+├── CONFIGURATION.md
+├── DEVELOPMENT.md
 ├── ARCHITECTURE.md
 ├── FIXES.md
 ├── LEGACY_README.md
@@ -144,7 +146,8 @@ entity scale and unscaled dimensions; it does not duplicate server rule lookup.
 ## Configuration and reload
 
 `config/realsize.json` has `configVersion: 2`. The schema and examples in the
-README are the product contract. Required fields are explicit; the entity map
+[configuration guide](CONFIGURATION.md) are the product contract. Required fields
+are explicit; the entity map
 is authoritative, including an empty map. Defaults are generated only for a
 missing file. Deleted rules stay deleted. Exact IDs beat tags; conflicting tag
 rules are errors. Unknown well-formed IDs/tags are warned with their names and
