@@ -1,0 +1,5 @@
+What: Boots packaged realsize-1.2.0.jar through Fabric on 127.0.0.1:25586, checks startup/class isolation, sends stop, and terminates the process group on timeout.
+Touches: runtime/realsize-mod/build/libs/realsize-1.2.0.jar; run/server-smoke/ EULA acceptance, overwritten server.properties, scaffold-smoke world/server files; evidence/server-smoke.log, server-classes.log (deleted first), server-smoke.gradle and server-classpath.txt. Invokes repo gradlew with a generated init script and smokeClasspath task, then a Java server; uses Gradle/Loom caches. Paths are under /home/p-h-r-e-d/phred2.0/.
+Sends: Gradle may fetch distribution/dependencies from configured repositories; the online-mode Minecraft server may contact its configured external services.
+Why: Maintains script documentation for OG Moo-cow's active-project inventory.
+Flags: None expected directly; delegated gradlew uses shell eval (Hidden code). Writes eula=true, opens a local server port, saves world data, and may send SIGTERM/SIGKILL to its launched process group.
